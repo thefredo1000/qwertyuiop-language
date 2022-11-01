@@ -1,0 +1,21 @@
+{
+  "name": "qwertyuiop",
+  "version": "1.0.0",
+  "description": "The qwertyuiop (Quoting What Everyone Really Thinks Yelling Unknowingly I Oppose Prejudice) Language by Rodrigo Casale Ayup.",
+  "author": "Rodrigo Casale Ayup",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^2.0.20",
+    "ts-node": "^10.9.1",
+    "tslint": "^6.1.3",
+    "typescript": "^4.8.4"
+  },
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "jison": "^0.4.18"
+  }
+}
