@@ -1,11 +1,11 @@
+import Semantics from "./intermediate";
+
 // myparser.js
 var fs = require("fs");
 var jison = require("jison");
 
 var bnf = fs.readFileSync("src/grammar.jison", "utf8");
 var parser = new jison.Parser(bnf);
-
-// console.log(parser)
 
 const prog1 = `
 class Perro {
@@ -112,22 +112,54 @@ func main () {
     const var e : int;
     return 2;
 }
-`
+`;
 
 const prog2 = `
-const var a : int;
+var a1 : int;
+const var b : int = 12;
 
-func main () {
-    const var e : int;
+func cbo () : void {
+    const var e : int = 12;
     return 2;
 }
-`
-console.log(parser.generate())
+func cbo2 () : void {
+    const var e2 : int = 29;
+    const var e43 : float = 2334;
+    const var e33 : float = 2334;
+    var a : int;
+    return 2;
+}
+func cbo3 () : int {
+    const var e23 : char = 28;
+    return 2;
+}
 
-// console.log("PROGRAM 1:\n")
-// console.log(prog1)
-// console.log("\nResult: " + parser.parse(prog1))
-console.log("----------------------------------------------------------------------------------------------------------\n")
+func main () {
+    a = 2;
+    return 2;
+}
+`;
 
+const semantics: Semantics = new Semantics();
+parser.yy.data = {
+  semantics
+};
+console.log(parser.generate());
+
+console.log("PROGRAM:");
+console.log(prog2);
+console.log("Result: " + parser.parse(prog2));
+
+console.log("\x1b[33m%s\x1b[0m", "Memory:")
+console.table(parser.yy.data.semantics.getMemory())
+
+console.log("\x1b[33m%s\x1b[0m", "Dir Func:")
+console.table(parser.yy.data.semantics.getDirFunc());
+
+console.log("\x1b[33m%s\x1b[0m", "Var Table:")
+console.table(parser.yy.data.semantics.getVarTable());
+console.log(
+  "----------------------------------------------------------------------------------------------------------\n"
+);
 
 module.exports = parser;

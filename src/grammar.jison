@@ -65,6 +65,7 @@
 "string"        return "STRING"
 "bool"          return "BOOL"
 "void"          return "VOID"
+"undefined"     return "UNDEFINED"
 
 
 /* ID REGEX */
@@ -81,7 +82,13 @@
 %start program
 %%
 program 
-    : global_def EOF
+    : program_name global_def EOF {
+        yy.data.semantics.closeFunction();
+    }
+    ;
+
+program_name
+    :
     ;
 
 main
@@ -139,22 +146,29 @@ object_attribute_call_prime
     ;
 
 variable_def
-    : VAR var_def var_multiple_def SEMICOLON
-    | CONST VAR var_def var_multiple_def SEMICOLON
-    ;
-
-var_multiple_def
-    :
-    | COMMA var_def var_multiple_def
+    : VAR var_def SEMICOLON {
+        yy.data.semantics.saveVariable($2.name, $2.type, $2.expression, false);
+        $$ = $2;
+    }
+    | CONST VAR var_def SEMICOLON {
+        yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
+        $$ = $3;
+    }
     ;
 
 var_def
-    : ID_NAME COLON type var_expression
+    : ID_NAME COLON type var_expression {
+        $$ = {name : $1, type : $3, expression : $4, isConst : undefined}
+    }
     ;
 
 var_expression
-    :
-    | EQUALS expression
+    : {
+        $$ = "undefined";
+    }
+    | EQUALS expression {
+        $$ = $2;
+    }
     ;
 
 type
@@ -177,11 +191,19 @@ multiple_functions_def
     ;
 
 function_def
-    : FUNC ID_NAME L_PAREN params R_PAREN COLON function_type L_BRACES multiple_statutes R_BRACES
+    : function_prime L_BRACES multiple_statutes R_BRACES {
+        yy.data.semantics.closeFunction();
+    }
+    ;
+
+function_prime 
+    : FUNC ID_NAME L_PAREN params R_PAREN COLON function_type {
+        yy.data.semantics.saveFunction($2, $7);
+    } 
     ;
 
 function_type
-    : type
+    : type 
     | VOID
     ;
 
