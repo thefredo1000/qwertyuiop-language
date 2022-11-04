@@ -116,21 +116,26 @@ func main () {
 
 const prog2 = `
 var a1 : int;
-const var b : int = 12;
+const var beee : int = 12;
 
 func cbo () : void {
-    const var e : int = 12;
-    return 2;
+    const var e : int = 13;
+    e = 4 * 6 / 2;
+    e = 5 + 2 * 3 - 8 / 2 + 1000 / 12;
+    return 2940;
 }
 func cbo2 () : void {
     const var e2 : int = 29;
-    const var e43 : float = 2334;
-    const var e33 : float = 2334;
-    var a : int;
+    const var e43 : float = 2334.0;
+    const var e33 : int = 2334.0;
+    var a : string;
+    a = "321" + "di";
+    var cobo : bool = false;
+    const var new : string = "wow";
     return 2;
 }
 func cbo3 () : int {
-    const var e23 : char = 28;
+    const var e23 : char = '2';
     return 2;
 }
 
@@ -140,6 +145,22 @@ func main () {
 }
 `;
 
+const prog3 = `
+var a1 : int;
+
+func iftest () : void {
+    if ( a1 > 12) {
+        a1 = 12;
+    }
+}
+
+func main () {
+    const var a : int = 12;
+    
+    return 3;
+}
+`
+
 const semantics: Semantics = new Semantics();
 parser.yy.data = {
   semantics
@@ -147,8 +168,8 @@ parser.yy.data = {
 console.log(parser.generate());
 
 console.log("PROGRAM:");
-console.log(prog2);
-console.log("Result: " + parser.parse(prog2));
+console.log(prog3);
+console.log("Result: " + parser.parse(prog3));
 
 console.log("\x1b[33m%s\x1b[0m", "Memory:")
 console.table(parser.yy.data.semantics.getMemory())
@@ -158,6 +179,10 @@ console.table(parser.yy.data.semantics.getDirFunc());
 
 console.log("\x1b[33m%s\x1b[0m", "Var Table:")
 console.table(parser.yy.data.semantics.getVarTable());
+
+console.log(parser.yy.data.semantics.getOperandStack());
+console.log(parser.yy.data.semantics.getOperatorStack());
+console.table(parser.yy.data.semantics.getQuadruples());
 console.log(
   "----------------------------------------------------------------------------------------------------------\n"
 );

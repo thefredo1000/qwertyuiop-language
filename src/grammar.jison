@@ -4,9 +4,9 @@
 
 /* TYPES REGEX */
 ['].[']                     return "CTE_CHAR"
-["].*["]                    return "CTE_STRING"
+["][^".]*["]                    return "CTE_STRING"
+[+-]?([0-9])+[.]([0-9])+    return "CTE_FLOAT"
 [+-]?([0-9])+               return "CTE_INT"
-[+-]?([0-9]*[.])?[0-9]+f?   return "CTE_FLOAT"
 
 /* ARITHMETIC */
 "+"             return "PLUS"
@@ -148,26 +148,20 @@ object_attribute_call_prime
 variable_def
     : VAR var_def SEMICOLON {
         yy.data.semantics.saveVariable($2.name, $2.type, $2.expression, false);
-        $$ = $2;
+        yy.data.semantics.storeData($2.name);
     }
     | CONST VAR var_def SEMICOLON {
         yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
-        $$ = $3;
+        yy.data.semantics.storeData($3.name);
     }
     ;
 
 var_def
-    : ID_NAME COLON type var_expression {
-        $$ = {name : $1, type : $3, expression : $4, isConst : undefined}
+    : ID_NAME COLON type EQUALS expression_0 {
+        $$ = {name : $1, type : $3, expression : $5, isConst : undefined}
     }
-    ;
-
-var_expression
-    : {
-        $$ = "undefined";
-    }
-    | EQUALS expression {
-        $$ = $2;
+    |  ID_NAME COLON type {
+        $$ = {name : $1, type : $3, expression : undefined, isConst : undefined}
     }
     ;
 
@@ -234,76 +228,121 @@ function_call
     ;
 
 do_while_loop
-    : DO L_BRACES multiple_statutes R_BRACES WHILE L_PAREN expression R_PAREN SEMICOLON
+    : DO L_BRACES multiple_statutes R_BRACES WHILE L_PAREN expression_0 R_PAREN SEMICOLON
     ;
 
 while_loop
-    : WHILE L_PAREN expression R_PAREN L_BRACES multiple_statutes R_BRACES
+    : WHILE L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES
     ;
 
 decision_statute
-    : IF L_PAREN expression R_PAREN L_BRACES multiple_statutes R_BRACES
-    | IF L_PAREN expression R_PAREN L_BRACES multiple_statutes R_BRACES ELSE L_BRACES multiple_statutes R_BRACES
-    | IF L_PAREN expression R_PAREN L_BRACES multiple_statutes R_BRACES ELSE decision_statute
+    : IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES
+    | IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES ELSE L_BRACES multiple_statutes R_BRACES
+    | IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES ELSE decision_statute
     ;
 
 variable_assign
-    : ID_NAME EQUALS expression SEMICOLON
+    : ID_NAME EQUALS expression_0 SEMICOLON {
+        yy.data.semantics.storeData($1);
+    }
     ;
 
 function_return
-    : RETURN expression SEMICOLON
+    : RETURN expression_0 SEMICOLON {
+        // TODO: check if the return type is the same as the function type
+        yy.data.semantics.removeOperand();
+    }
     | RETURN SEMICOLON
     ;
 
-expression
-    : comp boolean_comp
+expression_0
+    : expression_1 boolean_comp
     ;
 
 boolean_comp
     :
-    | AND comp boolean_comp
-    | OR comp boolean_comp
+    | AND expression_1 boolean_comp
+    | OR expression_1 boolean_comp
     ;
 
-comp
-    : exp comp_prime
+expression_1
+    : expression_2 expression_1_prime  
     ;
 
-comp_prime
+expression_1_prime
     : 
-    | comp_operators exp
+    | comp_operators expression_2
     ;
 
-exp
-    : term exp_prime
+expression_2
+    : expression_3_pre expression_2_prime 
     ;
 
-exp_prime
-    : /* empty */
-    | PLUS term exp_prime
-    | MINUS term exp_prime
+expression_3_pre 
+    : expression_3 {
+        yy.data.semantics.processExpression(["+", "-"]); 
+    }
     ;
 
-term
-    : fact term_prime
+expression_2_prime
+    : /* empty */ 
+    | sub_add_operators expression_3_pre expression_2_prime 
     ;
 
-term_prime
-    : /* empty */
-    | ASTERISK fact term_prime
-    | SLASH fact term_prime
+sub_add_operators
+    : PLUS {
+        yy.data.semantics.storeOperator($1)
+    }
+    | MINUS {
+        yy.data.semantics.storeOperator($1)
+    }
     ;
 
-fact
-    // : expression
-    : CTE_INT
+expression_3
+    : expression_4_pre expression_3_prime
+    ;
+
+expression_4_pre
+    : expression_4 {
+        yy.data.semantics.processExpression(["*", "/"]); 
+    }
+    ;
+
+expression_3_prime
+    : /* empty */ 
+    | mult_div_operand expression_4_pre expression_3_prime 
+    ;
+
+mult_div_operand
+    : ASTERISK {
+        yy.data.semantics.storeOperator($1)
+    }
+    | SLASH {
+        yy.data.semantics.storeOperator($1)
+    }
+    ;
+
+expression_4
+    : CTE_FLOAT {
+        yy.data.semantics.storeOperand($1, "float");
+    }
     | L_PAREN expression R_PAREN 
-    | CTE_FLOAT
-    | CTE_STRING
-    | CTE_CHAR
-    | TRUE
-    | FALSE
+    | CTE_INT {
+        yy.data.semantics.storeOperand($1, "int");
+    }
+    | CTE_STRING{
+        console.log($1)
+        yy.data.semantics.storeOperand($1, "string");
+    }
+    | CTE_CHAR {
+        yy.data.semantics.storeOperand($1, "char");
+    }
+    | TRUE {
+        yy.data.semantics.storeOperand("1", "bool");
+    }
+    | FALSE {
+        yy.data.semantics.storeOperand("0", "bool");
+    }
     | id_call
     | object_attribute_call
     ;
@@ -317,8 +356,12 @@ id_call
 
 call_params
     :
-    | expression
-    | expression COMMA call_params
+    | expression_0 call_params_prime
+    ;
+
+call_params_prime
+    :
+    | COMMA call_params_prime
     ;
 
 comp_operators
