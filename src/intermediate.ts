@@ -50,6 +50,7 @@ class Semantics {
   operatorStack: Stack<string> = new Stack();
 
   quadruples: Array<Quadruple> = new Array<Quadruple>();
+  jumpsStack: Stack<number> = new Stack();
 
   constructor() {
     this.scopeStack = new Stack();
@@ -87,7 +88,6 @@ class Semantics {
   }
 
   getVariableType(dir: number) {
-    console.log(dir);
     const type = (Math.floor(dir / 100) % 10) % 5;
     if (type === 0) {
       return "int";
@@ -177,8 +177,7 @@ class Semantics {
 
   storeOperand(operand: string, type: string) {
     if (type === "string" || type === "char") {
-        console.log(operand)
-        operand = operand.replace(/['"]+/g, '')
+      operand = operand.replace(/['"]+/g, "");
     }
     this.operandStack.push({ val: operand, type });
   }
@@ -223,13 +222,36 @@ class Semantics {
     }
   }
 
+  isComparisonOperator(operator: string) {
+    return (
+      operator === "==" ||
+      operator === "!=" ||
+      operator === ">" ||
+      operator === "<" ||
+      operator === ">=" ||
+      operator === "<="
+    );
+  }
+
+  processBooleanExpression(operand1: any, operand2: any, operator: any) {
+    if (operator === ">") {
+      return operand1 > operand2;
+    } else if (operator === "<") {
+      return operand1 < operand2;
+    } else if (operator === ">=") {
+      return operand1 >= operand2;
+    } else if (operator === "<=") {
+      return operand1 <= operand2;
+    } else if (operator === "==") {
+      return operand1 === operand2;
+    } else if (operator === "!=") {
+      return operand1 !== operand2;
+    }
+    return false;
+  }
+
   processExpression(operators: string[]) {
-    if (
-      !(
-        this.operatorStack.peek() === operators[0] ||
-        this.operatorStack.peek() === operators[1]
-      )
-    ) {
+    if (!operators.includes(this.operatorStack.peek())) {
       return;
     }
 
@@ -241,24 +263,57 @@ class Semantics {
 
     // TODO: Add type checking
     if (!this.matchingType(type1, type2)) {
-      throw new Error("Type mismatch");
+      throw new Error(`Type mismatch, expected ${type1} got ${type2}`);
     }
     if (type1 === "int" && type2 === "int") {
-      const result = this.processIntMathematicalExpression(
-        operand1,
-        operand2,
-        operatorStr
-      );
-      if (result) {
+      // TODO: make this more organized
+      if (this.isComparisonOperator(operatorStr)) {
+        const result = this.processBooleanExpression(
+          operand1,
+          operand2,
+          operatorStr
+        );
+
         this.quadruples.push({
           op: operatorStr,
           arg1: operand1,
           arg2: operand2,
           result: result.toString(),
         });
-        this.storeOperand(result.toString(), type1);
+        this.storeOperand(result.toString(), "bool");
+      } else {
+        const result = this.processIntMathematicalExpression(
+          operand1,
+          operand2,
+          operatorStr
+        );
+        if (result) {
+          this.quadruples.push({
+            op: operatorStr,
+            arg1: operand1,
+            arg2: operand2,
+            result: result.toString(),
+          });
+          this.storeOperand(result.toString(), type1);
+        }
       }
     } else if (type1 === "float" || type2 === "float") {
+      // TODO: make this more organized
+      if (this.isComparisonOperator(operatorStr)) {
+        const result = this.processBooleanExpression(
+          operand1,
+          operand2,
+          operatorStr
+        );
+
+        this.quadruples.push({
+          op: operatorStr,
+          arg1: operand1,
+          arg2: operand2,
+          result: result.toString(),
+        });
+        this.storeOperand(result.toString(), "bool");
+      } else {
         const result = this.processFloatMathematicalExpression(
           operand1,
           operand2,
@@ -273,9 +328,31 @@ class Semantics {
           });
           this.storeOperand(result.toString(), type1);
         }
-    } else if (type1 === "string" || type2 === "string" || type1 === "char" || type2 === "char") {
+      }
+    } else if (
+      type1 === "string" ||
+      type2 === "string" ||
+      type1 === "char" ||
+      type2 === "char"
+    ) {
       if (operatorStr === "+") {
-        const result = operand1.replace(/['"]+/g, '') + operand2.replace(/['"]+/g, '');
+        const result =
+          operand1.replace(/['"]+/g, "") + operand2.replace(/['"]+/g, "");
+        this.quadruples.push({
+          op: operatorStr,
+          arg1: operand1,
+          arg2: operand2,
+          result: result.toString(),
+        });
+        this.storeOperand(result.toString(), type1);
+      }
+    } else if (operatorStr === ">" || operatorStr === "!=") {
+      if (operatorStr === ">") {
+        const result = this.processBooleanExpression(
+          operand1,
+          operand2,
+          operatorStr
+        );
         this.quadruples.push({
           op: operatorStr,
           arg1: operand1,
@@ -285,6 +362,36 @@ class Semantics {
         this.storeOperand(result.toString(), type1);
       }
     }
+  }
+
+  processDecisionStatExpression() {
+    if (this.operandStack.peek().type !== "bool") {
+      throw new Error(`Type mismatch with ${this.operandStack.peek().val}`);
+    } else {
+      const { val: operand1 } = this.operandStack.pop();
+      this.quadruples.push({
+        op: "GOTOF",
+        arg1: operand1,
+        arg2: "",
+        result: "",
+      });
+      this.jumpsStack.push(this.quadruples.length - 1);
+    }
+  }
+  processDecisionStatElse() {
+    this.quadruples.push({
+      op: "GOTO",
+      arg1: "",
+      arg2: "",
+      result: "",
+    });
+    const jumpIndex = this.jumpsStack.pop();
+    this.jumpsStack.push(this.quadruples.length - 1);
+    this.quadruples[jumpIndex].result = this.quadruples.length.toString();
+  }
+  endDecisionStat() {
+    const jumpIndex = this.jumpsStack.pop();
+    this.quadruples[jumpIndex].result = this.quadruples.length.toString();
   }
 
   storeData(varName: string, data: any) {

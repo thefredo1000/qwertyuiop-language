@@ -149,13 +149,19 @@ const prog3 = `
 var a1 : int;
 
 func iftest () : void {
-    if ( a1 > 12) {
+    if ( 2 > 2 ) {
+        a1 = 12;
+        a1 = 12100;
+    } else if ( 2 < 2 ) {
+        a1 = 12;
+        a1 = 13;
+    } else {
         a1 = 12;
     }
 }
 
 func main () {
-    const var a : int = 12;
+    const var a : int = 100;
     
     return 3;
 }
@@ -180,8 +186,8 @@ console.table(parser.yy.data.semantics.getDirFunc());
 console.log("\x1b[33m%s\x1b[0m", "Var Table:")
 console.table(parser.yy.data.semantics.getVarTable());
 
-console.log(parser.yy.data.semantics.getOperandStack());
-console.log(parser.yy.data.semantics.getOperatorStack());
+console.log(parser.yy.data.semantics.getOperandStack().isEmpty() ? "Operand Stack is empty" : "Operand Stack is not empty");
+console.log(parser.yy.data.semantics.getOperatorStack().isEmpty() ? "Operator Stack is empty" : "Operator Stack is not empty");
 console.table(parser.yy.data.semantics.getQuadruples());
 console.log(
   "----------------------------------------------------------------------------------------------------------\n"

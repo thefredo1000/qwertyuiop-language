@@ -8,24 +8,25 @@
 [+-]?([0-9])+[.]([0-9])+    return "CTE_FLOAT"
 [+-]?([0-9])+               return "CTE_INT"
 
-/* ARITHMETIC */
-"+"             return "PLUS"
-"-"             return "MINUS"
-"*"             return "ASTERISK"
-"/"             return "SLASH"
-"="             return "EQUALS"
 
 /* COMPARISONS */
-"<"             return "LT_COMP"
-"<="            return "LE_COMP"
-">"             return "GT_COMP"
 ">="            return "GE_COMP"
+"<="            return "LE_COMP"
+"<"             return "LT_COMP"
+">"             return "GT_COMP"
 "!="            return "NE_COMP"
 "=="            return "EQ_COMP"
 "&&"            return "AND"
 "||"            return "OR"
 "true"          return "TRUE"
 "false"         return "FALSE"
+
+/* ARITHMETIC */
+"+"             return "PLUS"
+"-"             return "MINUS"
+"*"             return "ASTERISK"
+"/"             return "SLASH"
+"="             return "EQUALS"
 
 /* SYMBOLS */
 "."             return "DOT"
@@ -232,13 +233,45 @@ do_while_loop
     ;
 
 while_loop
-    : WHILE L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES
+    : while_loop_pre while_loop_expression L_BRACES multiple_statutes R_BRACES {
+        yy.data.semantics.closeWhileLoop();
+    }
+    ;
+
+while_loop_pre 
+    : WHILE {
+        yy.data.semantics.saveWhileLoop();
+    }
+    ;
+
+while_loop_expression
+    : L_PAREN expression_0 R_PAREN {
+        yy.data.semantics.processWhileLoopExpression($1);
+    }
     ;
 
 decision_statute
-    : IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES
-    | IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES ELSE L_BRACES multiple_statutes R_BRACES
-    | IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES ELSE decision_statute
+    : IF decision_statute_expression L_BRACES multiple_statutes R_BRACES {
+        yy.data.semantics.endDecisionStat();
+    }
+    | IF decision_statute_expression L_BRACES multiple_statutes R_BRACES decision_statue_else L_BRACES multiple_statutes R_BRACES{
+        yy.data.semantics.endDecisionStat();
+    }
+    | IF decision_statute_expression L_BRACES multiple_statutes R_BRACES decision_statue_else decision_statute{
+        yy.data.semantics.endDecisionStat();
+    }
+    ;
+
+decision_statute_expression
+    : L_PAREN expression_0 R_PAREN {
+        yy.data.semantics.processDecisionStatExpression()
+    }
+    ;
+
+decision_statue_else
+    : ELSE {
+        yy.data.semantics.processDecisionStatElse();
+    }
     ;
 
 variable_assign
@@ -266,12 +299,17 @@ boolean_comp
     ;
 
 expression_1
-    : expression_2 expression_1_prime  
+    : expression_2_pre expression_1_prime  
     ;
 
+expression_2_pre
+    : expression_2 {
+        yy.data.semantics.processExpression([">", "<", ">=", "<=", "==", "!="]);
+    }
+    ;
 expression_1_prime
     : 
-    | comp_operators expression_2
+    | comp_operators expression_2_pre expression_1_prime
     ;
 
 expression_2
@@ -365,10 +403,24 @@ call_params_prime
     ;
 
 comp_operators
-    : EQ_COMP
-    | GE_COMP
-    | GT_COMP
-    | LE_COMP
-    | LT_COMP
-    | NE_COMP
+    : EQ_COMP{
+        yy.data.semantics.storeOperator($1)
+    }
+    | GE_COMP{
+        yy.data.semantics.storeOperator($1)
+    }
+    | GT_COMP{
+        console.log($1)
+        yy.data.semantics.storeOperator($1)
+    }
+    | LE_COMP{
+        console.log($1)
+        yy.data.semantics.storeOperator($1)
+    }
+    | LT_COMP{
+        yy.data.semantics.storeOperator($1)
+    }
+    | NE_COMP{
+        yy.data.semantics.storeOperator($1)
+    }
     ;
