@@ -1,0 +1,10 @@
+
+var a1 : int;
+
+func main () {
+    a1 = 12 + 1 * 2;
+    a1 = 12 + 1;
+    print(a1);
+
+    return 30;
+}

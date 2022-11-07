@@ -85,22 +85,17 @@
 program 
     : program_name global_def EOF {
         yy.data.semantics.closeFunction();
+        yy.data.semantics.closeProgram();
     }
     ;
 
 program_name
-    :
-    ;
-
-main
-    : FUNC MAIN L_PAREN params R_PAREN L_BRACES multiple_statutes function_return R_BRACES
+    : {
+    }
     ;
 
 global_def
-    : 
-    | global_objects_def global_def
-    | global_functions_def global_def
-    | global_variable_def global_def
+    : global_objects_def global_variable_def global_functions_def
     ; 
 
 global_objects_def
@@ -133,17 +128,18 @@ object_attribute_def
     ;
 
 global_variable_def
-    : variable_def
-    | global_variable_def variable_def
+    : {
+        yy.data.semantics.openProgram();
+    }
+    | variable_def global_variable_def 
     ;
 
 object_attribute_call
-    : ID_NAME object_attribute_call_prime
+    : id_call object_attribute_call_prime
     ;
 
 object_attribute_call_prime
-    :
-    | DOT id_call object_attribute_call_prime
+    : DOT id_call object_attribute_call 
     ;
 
 variable_def
@@ -185,6 +181,26 @@ multiple_functions_def
     | multiple_functions_def function_def
     ;
 
+main
+    : main_prime multiple_statutes function_return R_BRACES {
+        yy.data.semantics.closeFunction();
+    }
+    ;
+
+main_prime
+    : main_pre L_PAREN params R_PAREN L_BRACES {
+        yy.data.semantics.setFunctionType($1, "void");
+    } 
+    ;
+
+main_pre 
+    : FUNC MAIN {
+        yy.data.semantics.saveFunction($2);
+        yy.data.semantics.setInitialGoto();
+        $$ = $2;
+    }
+    ;
+
 function_def
     : function_prime L_BRACES multiple_statutes R_BRACES {
         yy.data.semantics.closeFunction();
@@ -192,9 +208,15 @@ function_def
     ;
 
 function_prime 
-    : FUNC ID_NAME L_PAREN params R_PAREN COLON function_type {
-        yy.data.semantics.saveFunction($2, $7);
+    : function_pre L_PAREN params R_PAREN COLON function_type {
+        yy.data.semantics.setFunctionType($1, $6);
     } 
+    ;
+function_pre 
+    : FUNC ID_NAME {
+        yy.data.semantics.saveFunction($2);
+        $$ = $2;
+    }
     ;
 
 function_type
@@ -204,8 +226,16 @@ function_type
 
 params
     : /* empty */
-    | ID_NAME COLON type
-    | ID_NAME COLON type COMMA params
+    | param 
+    | param COMMA params
+    ;
+
+param 
+    : ID_NAME COLON type {
+        yy.data.semantics.saveVariable($1,  $3, undefined, false);
+        yy.data.semantics.saveParam($3);
+        // TODO: make parameter table
+    }
     ;
 
 multiple_statutes
@@ -222,10 +252,19 @@ statute
     | function_return
     | function_call
     | object_attribute_call SEMICOLON
+    | print
+    ;
+
+print
+    : PRINT L_PAREN expression_0 R_PAREN SEMICOLON {
+        yy.data.semantics.processPrint($3);
+    }
     ;
 
 function_call
-    : ID_NAME L_PAREN call_params R_PAREN SEMICOLON
+    : ID_NAME L_PAREN call_params R_PAREN SEMICOLON {
+        yy.data.semantics.callFunction($1);
+    }
     ;
 
 do_while_loop
@@ -362,44 +401,52 @@ mult_div_operand
 
 expression_4
     : CTE_FLOAT {
-        yy.data.semantics.storeOperand($1, "float");
+        yy.data.semantics.storeConstOperand($1, "float");
     }
     | L_PAREN expression R_PAREN 
     | CTE_INT {
-        yy.data.semantics.storeOperand($1, "int");
+        yy.data.semantics.storeConstOperand($1, "int");
     }
     | CTE_STRING{
         console.log($1)
-        yy.data.semantics.storeOperand($1, "string");
+        yy.data.semantics.storeConstOperand($1, "string");
     }
     | CTE_CHAR {
-        yy.data.semantics.storeOperand($1, "char");
+        yy.data.semantics.storeConstOperand($1, "char");
     }
     | TRUE {
-        yy.data.semantics.storeOperand("1", "bool");
+        yy.data.semantics.storeConstOperand("1", "bool");
     }
     | FALSE {
-        yy.data.semantics.storeOperand("0", "bool");
+        yy.data.semantics.storeConstOperand("0", "bool");
     }
     | id_call
     | object_attribute_call
     ;
 
 id_call
-    : ID_NAME
-    | ID_NAME L_PAREN call_params R_PAREN
-    | ID_NAME ARR_SIZE
-    | ID_NAME ARR_SIZE ARR_SIZE
+    : ID_NAME {
+        yy.data.semantics.storeVariableOperand($1, "id");
+    }
+    // | ID_NAME L_PAREN call_params R_PAREN
+    // | ID_NAME ARR_SIZE
+    // | ID_NAME ARR_SIZE ARR_SIZE
     ;
 
 call_params
     :
-    | expression_0 call_params_prime
+    | pre_params call_params_prime
     ;
 
+pre_params
+    : expression_0 {
+        console.log($1)
+        // yy.data.semantics.processCallParams($1);
+    }
+    ;
 call_params_prime
     :
-    | COMMA call_params_prime
+    | COMMA pre_params call_params_prime
     ;
 
 comp_operators

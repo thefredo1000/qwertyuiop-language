@@ -1,0 +1,46 @@
+
+var a1 : int = 12;
+var maichol : char = "a";
+
+func iftest (cobo: int) : char {
+    cobo = 12;
+    print(cobo);
+    if ( 2 > 2 ) {
+        a1 = 12;
+        a1 = 12100;
+    } else if ( 2 < 2 ) {
+        a1 = 12;
+        a1 = 13;
+    } else {
+        a1 = 12;
+    }
+}
+
+
+func whiletest (cobo : int, yorbo: string) : int {
+    while ( 2 > 3 ) {
+        a1 = 5 + 2 * 3 - 8 / 2 + 1000 / 12;
+        a1 = 12100;
+    }
+}
+
+func main () {
+    var a : int = 4;
+    var b : int = 2;
+
+    var counter : int = 0;
+
+    while ( counter <= 10 ) {
+        print(counter);
+        if ( counter < 10 ) {
+            print("counter es menor a 10");
+        } else if ( counter == 10 ) {
+            print("counter es igual a 10");
+        } else {
+            print("counter es mayor a 10");
+        }
+        counter = counter + 1;
+    }
+    
+    return 3;
+}

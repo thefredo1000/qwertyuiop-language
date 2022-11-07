@@ -1,0 +1,12 @@
+var a1 : float;
+var a2 : int;
+
+func main () {
+    a1 = 12 + 1 * 20 / 3 - 2;
+    a2 = 10 + a1;
+    print(100000);
+    print(a1);
+    print(a2);
+
+    return 30;
+}

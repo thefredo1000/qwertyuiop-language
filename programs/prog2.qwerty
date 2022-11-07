@@ -1,0 +1,29 @@
+
+var a1 : int;
+const var beee : int = 12;
+
+func cbo () : void {
+    const var e : int = 13;
+    e = 4 * 6 / 2;
+    e = 5 + 2 * 3 - 8 / 2 + 1000 / 12;
+    return 2940;
+}
+func cbo2 () : void {
+    const var e2 : int = 29;
+    const var e43 : float = 2334.0;
+    const var e33 : int = 2334.0;
+    var a : string;
+    a = "321" + "di";
+    var cobo : bool = false;
+    const var new : string = "wow";
+    return 2;
+}
+func cbo3 () : int {
+    const var e23 : char = '2';
+    return 2;
+}
+
+func main () {
+    a = 2;
+    return 2;
+}
