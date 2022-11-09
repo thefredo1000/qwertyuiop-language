@@ -1,13 +1,17 @@
+const SCOPE_MEM_SIZE = 100000;
+const TYPE_MEM_SIZE = SCOPE_MEM_SIZE / 10;
+
 import { Stack } from "@datastructures-js/stack";
 
 interface MemoryBatch {
-  [key: string]: Array<number>;
+  [key: string]: Array<number | undefined>;
 }
 
 interface Func {
   type: string;
   nLocalVar: number;
   quadCount: number;
+  quadStart: number;
   parameterTable: Array<string>;
   scope: number;
 }
@@ -46,25 +50,35 @@ function getTypeDir(type: string) {
   if (type === "int") {
     return 0;
   } else if (type === "float") {
-    return 100;
+    return 1 * TYPE_MEM_SIZE;
   } else if (type === "char") {
-    return 200;
+    return 2 * TYPE_MEM_SIZE;
   } else if (type === "string") {
-    return 300;
+    return 3 * TYPE_MEM_SIZE;
   } else if (type === "bool") {
-    return 400;
+    return 4 * TYPE_MEM_SIZE;
   }
-  return 500;
+  return 5 * TYPE_MEM_SIZE;
 }
 
 class Semantics {
   memory: Mem;
   dirFunc: DirFunc;
-  varTable: Array<{ varName: string; dir: number }>;
+  varTable: Array<{ varName: string; dir: number; dim?: number }>;
+
   tempStack: Stack<string> = new Stack();
   scopeStack: Stack<string>;
   operandStack: Stack<{ val: string; type: string }> = new Stack();
   operatorStack: Stack<string> = new Stack();
+
+  dim: Array<{
+    lsup: number;
+    m: number | undefined;
+    next: number | undefined;
+  }> = [];
+  startDim: number | undefined;
+  prevDim: number | undefined;
+  r: number | undefined = 1;
 
   quadruples: Array<Quadruple> = new Array<Quadruple>();
   jumpsStack: Stack<number> = new Stack();
@@ -84,6 +98,7 @@ class Semantics {
       type: "",
       nLocalVar: 0,
       quadCount: 0,
+      quadStart: 0,
       parameterTable: [],
       scope: 0,
     };
@@ -91,6 +106,7 @@ class Semantics {
       type: "",
       nLocalVar: 0,
       quadCount: 0,
+      quadStart: 0,
       parameterTable: [],
       scope: 1,
     };
@@ -99,6 +115,7 @@ class Semantics {
       type: "",
       nLocalVar: 0,
       quadCount: 0,
+      quadStart: 0,
       parameterTable: [],
       scope: 2,
     };
@@ -146,8 +163,16 @@ class Semantics {
     return this.quadruples;
   }
 
+  getDim() {
+    return this.dim;
+  }
+
+  getDimAt(index: number) {
+    return this.dim[index];
+  }
+
   getVariableType(dir: number) {
-    const type = (Math.floor(dir / 100) % 10) % 5;
+    const type = (Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5;
     if (type === 0) {
       return "int";
     } else if (type === 1) {
@@ -177,9 +202,84 @@ class Semantics {
     return false;
   }
 
-  saveParam(type: string) {
+  saveParam(name: string, type: string) {
     this.dirFunc[this.scopeStack.peek()].nLocalVar--;
-    this.dirFunc[this.scopeStack.peek()].parameterTable.push(type);
+
+    this.varTable.forEach((variable) => {
+      if (
+        variable.varName === name &&
+        Math.floor(variable.dir / SCOPE_MEM_SIZE) ===
+          this.dirFunc[this.scopeStack.peek()].scope
+      ) {
+        this.dirFunc[this.scopeStack.peek()].parameterTable.push(
+          variable.dir.toString()
+        );
+      }
+    });
+  }
+
+  saveArraySize(size: number) {
+    this.r = size * (this.r || 1);
+    if (this.startDim === undefined) {
+      this.startDim = this.dim.length;
+    }
+    if (this.prevDim !== undefined) {
+      this.dim[this.prevDim].next = this.prevDim + 1;
+    }
+    this.dim.push({ lsup: size, m: undefined, next: undefined });
+    this.prevDim = this.dim.length - 1;
+  }
+
+  saveArray(
+    variable: any,
+    type: string,
+    expression: any,
+    isConst: boolean
+  ): void {
+    // If the variable is already declared in the current scope return error
+    if (
+      this.varTable.find(
+        (x: any) =>
+          x.varName === variable &&
+          (Math.floor(x.dir / SCOPE_MEM_SIZE) ===
+            this.dirFunc[this.scopeStack.peek()].scope ||
+            Math.floor(x.dir / SCOPE_MEM_SIZE) === this.dirFunc["global"].scope)
+      )
+    ) {
+      throw new Error(`Variable ${variable} already declared.`);
+    } else {
+      // If the variable is not declared in the current scope, save it
+      this.dirFunc[this.scopeStack.peek()].scope;
+      const dir =
+        this.dirFunc[this.scopeStack.peek()].scope * SCOPE_MEM_SIZE +
+        (isConst ? 500 : 0) +
+        getTypeDir(type) +
+        this.memory[this.scopeStack.peek()][type].length;
+
+      this.varTable.push({
+        varName: variable,
+        dir: dir,
+        dim: this.startDim,
+      });
+      this.dirFunc[this.scopeStack.peek()].nLocalVar++;
+      // Also save it in the memory
+      this.memory[this.scopeStack.peek()][type].push(expression);
+      if (this.r !== undefined) {
+        for (let i = 0; i < this.r; i++) {
+          this.memory[this.scopeStack.peek()][type].push(undefined);
+        }
+      }
+    }
+
+    let nextDim = this.startDim;
+    while (nextDim !== undefined) {
+      this.dim[nextDim].m = (this.r || 1) / this.dim[nextDim].lsup;
+      this.r = this.dim[nextDim].m ? this.dim[nextDim].m : 1;
+      nextDim = this.dim[nextDim].next;
+    }
+    this.r = 1;
+    this.prevDim = undefined;
+    this.startDim = undefined;
   }
 
   saveVariable(
@@ -193,17 +293,16 @@ class Semantics {
       this.varTable.find(
         (x: any) =>
           x.varName === variable &&
-          (Math.floor(x.dir / 1000) ===
+          (Math.floor(x.dir / SCOPE_MEM_SIZE) ===
             this.dirFunc[this.scopeStack.peek()].scope ||
-            Math.floor(x.dir / 1000) === this.dirFunc["global"].scope)
+            Math.floor(x.dir / SCOPE_MEM_SIZE) === this.dirFunc["global"].scope)
       )
     ) {
       throw new Error(`Variable ${variable} already declared.`);
     } else {
       // If the variable is not declared in the current scope, save it
-      this.dirFunc[this.scopeStack.peek()].scope;
       const dir =
-        this.dirFunc[this.scopeStack.peek()].scope * 1000 +
+        this.dirFunc[this.scopeStack.peek()].scope * SCOPE_MEM_SIZE +
         (isConst ? 500 : 0) +
         getTypeDir(type) +
         this.memory[this.scopeStack.peek()][type].length;
@@ -228,6 +327,7 @@ class Semantics {
         type: "",
         nLocalVar: 0,
         quadCount: 0,
+        quadStart: this.quadruples.length,
         parameterTable: [],
         scope: this.scopeStack.size(),
       };
@@ -239,8 +339,6 @@ class Semantics {
   }
 
   closeFunction() {
-    // console.log("\x1b[33m%s\x1b[0m", this.scopeStack.peek());
-    // console.table(this.getVarTable());
     if (
       this.scopeStack.peek() !== "global" &&
       this.scopeStack.peek() !== "main"
@@ -253,19 +351,15 @@ class Semantics {
       });
     }
 
-    // this.dirFunc.filter((element) => {
-    //   return element.funcName === this.scopeStack.peek();
-    // });
-    // TODO: find out what to do over here:
     this.varTable = this.varTable.filter((x) => {
       return (
-        Math.floor(x.dir / 1000) !== this.dirFunc[this.scopeStack.peek()].scope
+        Math.floor(x.dir / SCOPE_MEM_SIZE) !==
+        this.dirFunc[this.scopeStack.peek()].scope
       );
     });
-    // this.scopeStack.pop();
   }
 
-  callFunction(funcName: string) {
+  preCallFunction(funcName: string) {
     const func = this.dirFunc[funcName];
     if (!func) {
       throw new Error(`${funcName} does not exist.`);
@@ -277,7 +371,34 @@ class Semantics {
         result: "",
       });
     }
-    console.log("Function", func);
+  }
+  callFunction(funcName: string) {
+    const func = this.dirFunc[funcName];
+    if (!func) {
+      throw new Error(`${funcName} does not exist.`);
+    } else {
+      if (func.type === "void") {
+        this.quadruples.push({
+          op: "GOSUB",
+          arg1: func.quadStart.toString(),
+          arg2: "",
+          result: "",
+        });
+      } else {
+        const tempDir =
+          this.tempStack.size() +
+          getTypeDir(func.type) +
+          this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+        this.quadruples.push({
+          op: "GOSUB",
+          arg1: func.quadStart.toString(),
+          arg2: "",
+          result: tempDir.toString(),
+        });
+        this.tempStack.push(tempDir.toString());
+        this.operandStack.push({ val: tempDir.toString(), type: func.type });
+      }
+    }
   }
 
   storeOperand(operand: string, type: string) {
@@ -321,9 +442,83 @@ class Semantics {
     }
   }
 
-  removeOperand() {
-    this.operandStack.pop();
+
+
+  getAddressType(dir: number) {
+    const type = (Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5;
+    if (type === 0) {
+      return "int";
+    } else if (type === 1) {
+      return "float";
+    } else if (type === 2) {
+      return "char";
+    } else if (type === 3) {
+      return "string";
+    } else if (type === 4) {
+      return "bool";
+    }
+    return "null";
   }
+
+  getValueInMemory(key: string): any {
+    const dir = parseInt(key);
+
+    const scopeBase = Math.floor(dir / SCOPE_MEM_SIZE) % SCOPE_MEM_SIZE;
+    const valType = this.getAddressType(dir);
+
+    const base =
+      scopeBase * SCOPE_MEM_SIZE +
+      ((Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5) * TYPE_MEM_SIZE;
+
+    const scope = Object.keys(this.memory)[scopeBase];
+
+    const val = this.memory[scope][valType][dir - base];
+
+    return val;
+  }
+
+  verifyArray() {
+    const operand = this.operandStack.pop();
+    console.log(operand);
+    console.log(this.getValueInMemory(operand.val));
+    const index = this.getValueInMemory(operand.val)
+    console.table(this.getDimAt(index));
+  }
+
+  returnFunction() {
+    const func = this.dirFunc[this.scopeStack.peek()];
+    if (
+      this.scopeStack.peek() !== "global" &&
+      this.scopeStack.peek() !== "main"
+    ) {
+      if (func.type === "void") {
+        console.log(func, "it's void");
+        this.quadruples.push({
+          op: "RETURN",
+          arg1: "",
+          arg2: "",
+          result: "",
+        });
+      } else {
+        const tempDir =
+          this.tempStack.size() +
+          getTypeDir(func.type) +
+          this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+        if (this.operandStack.peek().type !== func.type) {
+          throw new Error(`Return type does not match function type.`);
+        }
+
+        this.quadruples.push({
+          op: "RETURN",
+          arg1: this.operandStack.pop().val,
+          arg2: "",
+          result: tempDir.toString(),
+        });
+      }
+    }
+  }
+
   storeOperator(operator: string) {
     this.operatorStack.push(operator);
   }
@@ -429,7 +624,7 @@ class Semantics {
     const tempDir =
       this.tempStack.size() +
       getTypeDir(resultType) +
-      this.dirFunc["temp"].scope * 1000;
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
 
     this.quadruples.push({
       op: operatorStr,
@@ -450,6 +645,15 @@ class Semantics {
     const { val: operand, type } = this.operandStack.pop();
     this.quadruples.push({
       op: "PRINT",
+      arg1: operand,
+      arg2: "",
+      result: "",
+    });
+  }
+  processCallParams() {
+    const { val: operand, type } = this.operandStack.pop();
+    this.quadruples.push({
+      op: "PARAM",
       arg1: operand,
       arg2: "",
       result: "",
@@ -543,6 +747,16 @@ class Semantics {
     this.quadruples.push({
       op: "END",
       arg1: "",
+      arg2: "",
+      result: "",
+    });
+  }
+
+  processArraySize() {
+    const { val: operand, type } = this.operandStack.pop();
+    this.quadruples.push({
+      op: "ARRAYSIZE",
+      arg1: operand,
       arg2: "",
       result: "",
     });

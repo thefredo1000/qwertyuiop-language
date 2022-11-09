@@ -39,6 +39,8 @@
 ")"             return "R_PAREN"
 "{"             return "L_BRACES"
 "}"             return "R_BRACES"
+"["             return "L_BRACKET"
+"]"             return "R_BRACKET"
 
 
 "program"       return "PROGRAM"
@@ -73,7 +75,7 @@
 [A-Z][a-zA-Z]*              return "OBJECT_NAME"
 [A-Z][A-Z]*                 return "PROGRAM_NAME"
 [a-zA-Z][a-zA-Z0-9]*        return "ID_NAME"
-\[[0-9]+\]                  return "ARR_SIZE"
+// \[[0-9]+\]                  return "ARR_SIZE"
 <<EOF>>                     return 'EOF'
 
 /lex
@@ -144,21 +146,32 @@ object_attribute_call_prime
 
 variable_def
     : VAR var_def SEMICOLON {
-        yy.data.semantics.saveVariable($2.name, $2.type, $2.expression, false);
-        yy.data.semantics.storeData($2.name);
+        console.log($2);
+        if ($2.isArray) {
+            yy.data.semantics.saveArray($2.name, $2.type, $2.expression, false);
+            yy.data.semantics.storeData($2.name);
+        } else {
+            yy.data.semantics.saveVariable($2.name, $2.type, $2.expression, false);
+            yy.data.semantics.storeData($2.name);
+        }
     }
     | CONST VAR var_def SEMICOLON {
-        yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
-        yy.data.semantics.storeData($3.name);
+        if ($2.isArray) {
+            yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
+            yy.data.semantics.storeData($3.name);
+        } else {
+            yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
+            yy.data.semantics.storeData($3.name);
+        }
     }
     ;
 
 var_def
-    : ID_NAME COLON type EQUALS expression_0 {
-        $$ = {name : $1, type : $3, expression : $5, isConst : undefined}
+    : ID_NAME COLON type array_size EQUALS expression_0 {
+        $$ = {name : $1, type : $3, expression : $6, isConst : undefined, isArray: $4};
     }
-    |  ID_NAME COLON type {
-        $$ = {name : $1, type : $3, expression : undefined, isConst : undefined}
+    |  ID_NAME COLON type array_size {
+        $$ = {name : $1, type : $3, expression : undefined, isConst : undefined, isArray: $4}
     }
     ;
 
@@ -168,6 +181,21 @@ type
     | INT
     | FLOAT
     | BOOL
+    ;
+
+array_size
+    : {
+        $$ = false;
+    }
+    | array_size_prime array_size {
+        $$ = true
+    }
+    ;
+
+array_size_prime 
+    :  L_BRACKET CTE_INT R_BRACKET {
+        yy.data.semantics.saveArraySize($2);
+    }
     ;
 
 global_functions_def
@@ -233,8 +261,7 @@ params
 param 
     : ID_NAME COLON type {
         yy.data.semantics.saveVariable($1,  $3, undefined, false);
-        yy.data.semantics.saveParam($3);
-        // TODO: make parameter table
+        yy.data.semantics.saveParam($1, $3);
     }
     ;
 
@@ -246,12 +273,13 @@ multiple_statutes
 statute
     : variable_def
     | variable_assign
+    | array_assign
     | decision_statute
     | do_while_loop
     | while_loop
     | function_return
     | function_call
-    | object_attribute_call SEMICOLON
+    // | object_attribute_call SEMICOLON
     | print
     ;
 
@@ -261,11 +289,13 @@ print
     }
     ;
 
+
 function_call
-    : ID_NAME L_PAREN call_params R_PAREN SEMICOLON {
+    : pre_call_function call_params R_PAREN SEMICOLON {
         yy.data.semantics.callFunction($1);
     }
     ;
+
 
 do_while_loop
     : DO L_BRACES multiple_statutes R_BRACES WHILE L_PAREN expression_0 R_PAREN SEMICOLON
@@ -319,12 +349,22 @@ variable_assign
     }
     ;
 
+array_assign
+    : array_call EQUALS expression_0 SEMICOLON {
+        yy.data.semantics.storeData($1);
+    }
+    ;
+
+
 function_return
     : RETURN expression_0 SEMICOLON {
         // TODO: check if the return type is the same as the function type
-        yy.data.semantics.removeOperand();
+        yy.data.semantics.returnFunction();
     }
-    | RETURN SEMICOLON
+    | RETURN SEMICOLON{
+        // TODO: check if the return type is the same as the function type
+        yy.data.semantics.returnFunction();
+    }
     ;
 
 expression_0
@@ -408,7 +448,6 @@ expression_4
         yy.data.semantics.storeConstOperand($1, "int");
     }
     | CTE_STRING{
-        console.log($1)
         yy.data.semantics.storeConstOperand($1, "string");
     }
     | CTE_CHAR {
@@ -425,12 +464,49 @@ expression_4
     ;
 
 id_call
-    : ID_NAME {
-        yy.data.semantics.storeVariableOperand($1, "id");
+    : pre_call_function call_params R_PAREN  {
+        yy.data.semantics.callFunction($1);
     }
-    // | ID_NAME L_PAREN call_params R_PAREN
-    // | ID_NAME ARR_SIZE
-    // | ID_NAME ARR_SIZE ARR_SIZE
+    | id_name 
+    | array_call {
+
+    }
+    ;
+
+id_name 
+    : ID_NAME {
+        yy.data.semantics.storeVariableOperand($1);
+    }
+    ;
+
+array_call
+    : array_call_pre expression_0 R_BRACKET array_call_size {
+        // yy.data.semantics.storeArrayOperand($1);
+    }
+    ;
+
+array_call_pre
+    : id_name array_call_size_pre {
+    }
+    ;
+
+array_call_size
+    : array_call_size_pre expression_0 R_BRACKET array_call_size {
+        yy.data.semantics.processArraySize($1);
+    }
+    ;
+
+array_call_size_pre
+    : L_BRACKET {
+        yy.data.semantics.verifyArray();
+    }
+    ;
+
+pre_call_function
+    : ID_NAME L_PAREN {
+        yy.data.semantics.preCallFunction($1);
+        $$ = $1;
+    }
     ;
 
 call_params
@@ -440,8 +516,7 @@ call_params
 
 pre_params
     : expression_0 {
-        console.log($1)
-        // yy.data.semantics.processCallParams($1);
+        yy.data.semantics.processCallParams($1);
     }
     ;
 call_params_prime
@@ -457,11 +532,9 @@ comp_operators
         yy.data.semantics.storeOperator($1)
     }
     | GT_COMP{
-        console.log($1)
         yy.data.semantics.storeOperator($1)
     }
     | LE_COMP{
-        console.log($1)
         yy.data.semantics.storeOperator($1)
     }
     | LT_COMP{

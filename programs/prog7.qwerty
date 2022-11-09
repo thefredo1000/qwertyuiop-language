@@ -1,0 +1,37 @@
+var a1 : int = 12;
+var array : int [5] [4];
+var b1 : int = 13;
+var array2 : int [3] [3] [5];
+
+func returnTest (cobo : int, cobo1 : int, yob: string) : int {
+    print(cobo);
+    print(cobo1);
+    print(yob);
+    print("gets to here!");
+    a1 = 10 - 9;
+    print(a1);
+    if ( a1 == 1 ) {
+        return 1;
+    }
+    else {
+        return 2;
+    }
+    return 10;
+}
+
+func returnVoidTest(cobo : int) : void {
+    print("si pasa;");
+    print(cobo);
+    return;
+}
+
+func main () {
+    print("start!");
+    var e : int = returnTest(1, 2, "mbappe");
+    print(e);
+    print("and then we end up in here!");
+    returnVoidTest(70);
+    print("end!");
+    array[1][0] = 1;
+    return 3;
+}
