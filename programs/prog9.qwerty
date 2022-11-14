@@ -1,0 +1,7 @@
+
+func main () {
+    var boolean : bool;
+    boolean = 1 > 2 && 2 || 3;
+    print(boolean);
+    return 0;
+}

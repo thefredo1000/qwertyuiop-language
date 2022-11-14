@@ -84,7 +84,9 @@ if (!showQuadruples) {
 const virtualmachine = new VirtualMachine(
   parser.yy.data.semantics.getQuadruples(),
   parser.yy.data.semantics.getDirFunc(),
-  parser.yy.data.semantics.getMemory()
+  parser.yy.data.semantics.getMemory(), 
+  parser.yy.data.semantics.getVarTable(),
+  parser.yy.data.semantics.getDim()
 );
 
 virtualmachine.run();

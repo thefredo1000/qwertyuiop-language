@@ -4,7 +4,7 @@ const TYPE_MEM_SIZE = SCOPE_MEM_SIZE / 10;
 import { Stack } from "@datastructures-js/stack";
 
 interface MemoryBatch {
-  [key: string]: Array<number>;
+  [key: string]: Array<any>;
 }
 
 interface Quadruple {
@@ -59,16 +59,37 @@ class VirtualMachine {
   instructionPointer: number;
   instructionPointerStack: Stack<number> = new Stack();
 
+  varTable: Array<{ varName: string; dir: number; dim?: number }>;
+
+  dim: Array<{
+    lsup: number;
+    m: number | undefined;
+    next: number | undefined;
+  }> = [];
+
   memory: Mem = {};
   quadruples: Array<Quadruple> = new Array<Quadruple>();
   dirFunc: DirFunc;
   functionStack: Stack<string> = new Stack();
   paramCounter: number = 0;
 
-  constructor(quadruples: Array<Quadruple>, dirFunc: DirFunc, memory: Mem) {
+  constructor(
+    quadruples: Array<Quadruple>,
+    dirFunc: DirFunc,
+    memory: Mem,
+    varTable: Array<{ varName: string; dir: number; dim?: number }>,
+    dim: Array<{
+      lsup: number;
+      m: number | undefined;
+      next: number | undefined;
+    }>
+  ) {
     this.quadruples = quadruples;
     this.dirFunc = dirFunc;
     this.memory = memory;
+
+    this.varTable = varTable;
+    this.dim = dim;
 
     this.instructionPointer = 0;
   }
@@ -116,10 +137,10 @@ class VirtualMachine {
         this.notEqual(quadruple);
         break;
       case "&&":
-        // this.and(quadruple);
+        this.and(quadruple);
         break;
       case "||":
-        // this.or(quadruple);
+        this.or(quadruple);
         break;
       case "!":
         // this.not(quadruple);
@@ -186,6 +207,10 @@ class VirtualMachine {
   }
 
   getValueInMemory(key: string): number {
+    if (key && key[0] === "*") {
+      const aux = this.getValueInMemory(key.slice(1));
+      return aux;
+    }
     const dir = parseInt(key);
 
     const scopeBase = Math.floor(dir / SCOPE_MEM_SIZE) % SCOPE_MEM_SIZE;
@@ -196,18 +221,23 @@ class VirtualMachine {
       ((Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5) * TYPE_MEM_SIZE;
 
     const scope = Object.keys(this.memory)[scopeBase];
-
     const val = this.memory[scope][valType][dir - base];
-
     return val;
   }
 
-  setValueInMemory(key: string, value: any) {
+  setValueInMemory(key: any, value: any) {
+    if (key && key[0] === "*") {
+      // key = this.getValueInMemory(key.slice(1));
+      key = key.replace("*", "");
+      const temp = this.getValueInMemory(key);
+      if (temp === undefined) {
+        return;
+      }
+      key = temp.toString();
+    }
     const dir = parseInt(key);
-
     const scopeBase = Math.floor(dir / SCOPE_MEM_SIZE) % SCOPE_MEM_SIZE;
     const valType = this.getAddressType(dir);
-
     const base =
       scopeBase * SCOPE_MEM_SIZE +
       ((Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5) * TYPE_MEM_SIZE;
@@ -219,12 +249,16 @@ class VirtualMachine {
   add(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
     const arg2 = quadruple.arg2;
-    const result = quadruple.result;
+    let result = quadruple.result;
 
     if (arg1 && arg2 && result) {
       const val1 = this.getValueInMemory(arg1);
-      const val2 = this.getValueInMemory(arg2);
-
+      const temp = this.getValueInMemory(arg2);
+      const temp2 = typeof temp === "string" ? parseInt(temp) : temp;
+      const val2 = temp2 + (result[0] === "*" ? 1 : 0);
+      if (result[0] === "*") {
+        result = result.slice(1);
+      }
       if (
         this.getAddressType(parseInt(arg1)) === "int" &&
         this.getAddressType(parseInt(arg2)) === "int"
@@ -304,11 +338,41 @@ class VirtualMachine {
     }
   }
 
-  assign(quadruple: Quadruple) {
+  and(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
+    const arg2 = quadruple.arg2;
     const result = quadruple.result;
 
-    if (arg1 && result) {
+    if (arg1 && arg2 && result) {
+      const val1: boolean = this.getValueInMemory(arg1) ? true : false;
+      const val2: boolean = this.getValueInMemory(arg2) ? true : false;
+
+      const valResult: boolean = val1 && val2;
+      this.setValueInMemory(result, valResult);
+    }
+  }
+
+  or(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const arg2 = quadruple.arg2;
+    const result = quadruple.result;
+
+    if (arg1 && arg2 && result) {
+      const val1: boolean = this.getValueInMemory(arg1) ? true : false;
+      const val2: boolean = this.getValueInMemory(arg2) ? true : false;
+
+      const valResult: boolean = val1 || val2;
+      this.setValueInMemory(result, valResult);
+    }
+  }
+
+  assign(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const aux = quadruple.result ? quadruple.result : "";
+    const result: any =
+      aux[0] === "*" ? (this.getValueInMemory(aux) + 1).toString() : aux;
+
+    if (arg1) {
       const val1 = this.getValueInMemory(arg1);
 
       if (this.getAddressType(parseInt(result)) === "int") {
@@ -324,11 +388,64 @@ class VirtualMachine {
     }
   }
 
+  getDimAt(index: number) {
+    return this.dim[index];
+  }
+
+  exportArray(val: { varName: string; dir: number; dim?: number }) {
+    if (val.dim === undefined) {
+      return;
+    }
+    var dim = this.getDimAt(val.dim);
+    let dimensions = [];
+    while (dim !== undefined) {
+      dimensions.push(dim.lsup);
+      if (dim.next !== undefined) {
+        dim = this.getDimAt(dim.next);
+      } else {
+        break;
+      }
+    }
+    let total = dimensions.reduce((a, b) => a * b, 1);
+    let res = [];
+    for (let i = 2; i <= total + 1; i++) {
+      res.push(this.getValueInMemory((val.dir + i).toString()));
+    }
+    return res;
+  }
+
+  printArray(val: { varName: string; dir: number; dim?: number }) {
+    if (val.dim === undefined) {
+      return;
+    }
+    var dim = this.getDimAt(val.dim);
+    let dimensions = [];
+    while (dim !== undefined) {
+      dimensions.push(dim.lsup);
+      if (dim.next !== undefined) {
+        dim = this.getDimAt(dim.next);
+      } else {
+        break;
+      }
+    }
+    let total = dimensions.reduce((a, b) => a * b, 1);
+    for (let i = 2; i <= total + 1; i++) {
+      console.log(this.getValueInMemory((val.dir + i).toString()));
+    }
+  }
+
   print(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
     if (arg1) {
-      const val1 = this.getValueInMemory(arg1);
-      console.log(val1);
+      if (e && e.dim !== undefined) {
+        this.printArray(e);
+      } else if (arg1[0] === "*") {
+        const val1 = this.getValueInMemory(arg1);
+        console.log(this.getValueInMemory((val1 + 1).toString()));
+      } else {
+        console.log(this.getValueInMemory(arg1));
+      }
     } else {
       console.log("null");
     }
@@ -467,7 +584,6 @@ class VirtualMachine {
         this.dirFunc[arg1].scope;
         // Also save it in the memory
         // this.memory[arg1][param.type].push(undefined);
-        // console.log(param);
         // this.memory[arg1][param];
       });
 
@@ -536,12 +652,6 @@ class VirtualMachine {
         this.getAddressType(parseInt(dir)) !==
         this.getAddressType(parseInt(arg1))
       ) {
-        console.log(
-          dir,
-          arg1,
-          this.getAddressType(parseInt(dir)),
-          this.getAddressType(parseInt(arg1))
-        );
         throw new Error("Type mismatch");
       }
 

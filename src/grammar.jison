@@ -107,13 +107,14 @@ global_objects_def
     ;
 
 object_def
-    : object_type_def OBJECT_NAME L_BRACES object_public_def R_BRACES SEMICOLON
-    | object_type_def OBJECT_NAME L_BRACES object_public_def object_private_def R_BRACES SEMICOLON
+    : object_type_def L_BRACES object_public_def R_BRACES SEMICOLON
+    | object_type_def L_BRACES object_public_def object_private_def R_BRACES SEMICOLON
     ;
 
 object_type_def
-    : CLASS
-    | INTERFACE
+    : CLASS OBJECT_NAME {
+        yy.data.semantics.openClass($2);
+    }
     ;
 
 object_public_def
@@ -125,8 +126,29 @@ object_private_def
 
 object_attribute_def
     : 
-    | variable_def object_attribute_def
+    | object_variable_def object_attribute_def
     | function_def object_attribute_def
+    ;
+
+object_variable_def
+    : VAR var_def SEMICOLON {
+        if ($2.isArray) {
+            yy.data.semantics.saveArray($2.name, $2.type, $2.expression, false);
+            yy.data.semantics.storeData($2.name);
+        } else {
+            yy.data.semantics.saveVariable($2.name, $2.type, $2.expression, false);
+            yy.data.semantics.storeData($2.name);
+        }
+    }
+    | CONST VAR var_def SEMICOLON {
+        if ($2.isArray) {
+            yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
+            yy.data.semantics.storeData($3.name);
+        } else {
+            yy.data.semantics.saveVariable($3.name, $3.type, $3.expression, true);
+            yy.data.semantics.storeData($3.name);
+        }
+    }
     ;
 
 global_variable_def
@@ -146,7 +168,6 @@ object_attribute_call_prime
 
 variable_def
     : VAR var_def SEMICOLON {
-        console.log($2);
         if ($2.isArray) {
             yy.data.semantics.saveArray($2.name, $2.type, $2.expression, false);
             yy.data.semantics.storeData($2.name);
@@ -277,6 +298,7 @@ statute
     | decision_statute
     | do_while_loop
     | while_loop
+    | for_loop
     | function_return
     | function_call
     // | object_attribute_call SEMICOLON
@@ -299,6 +321,26 @@ function_call
 
 do_while_loop
     : DO L_BRACES multiple_statutes R_BRACES WHILE L_PAREN expression_0 R_PAREN SEMICOLON
+    ;
+
+
+for_loop
+    : FOR L_PAREN for_loop_pre for_loop_expression SEMICOLON ID_NAME EQUALS expression_0 SEMICOLON R_PAREN L_BRACES multiple_statutes R_BRACES  {
+        yy.data.semantics.storeData($8);
+        yy.data.semantics.closeForLoop();
+    }
+    ;
+
+for_loop_pre 
+    :  variable_def {
+        yy.data.semantics.saveWhileLoop();
+    }
+    ;
+
+for_loop_expression
+    : expression_0 {
+        yy.data.semantics.processForLoop();
+    }
     ;
 
 while_loop
@@ -351,7 +393,7 @@ variable_assign
 
 array_assign
     : array_call EQUALS expression_0 SEMICOLON {
-        yy.data.semantics.storeData($1);
+        yy.data.semantics.storeArrayInStack();
     }
     ;
 
@@ -368,13 +410,45 @@ function_return
     ;
 
 expression_0
-    : expression_1 boolean_comp
+    : expression_0_or_pre expression_0_prime
     ;
 
-boolean_comp
-    :
-    | AND expression_1 boolean_comp
-    | OR expression_1 boolean_comp
+expression_0_prime 
+    : 
+    | and expression_0_or_pre expression_0_prime
+    ;
+
+and    
+    : AND {
+        yy.data.semantics.storeOperator($1)
+    }
+    ;
+
+expression_0_or_pre
+    : expression_0_or {
+        yy.data.semantics.processExpression(["&&"]);
+    }
+    ;
+
+expression_0_or
+    : expression_1_pre expression_0_or_prime
+    ;
+
+expression_0_or_prime 
+    : 
+    | or expression_1_pre expression_0_or_prime
+    ;
+
+or
+    : OR {
+        yy.data.semantics.storeOperator($1)
+    }
+    ;
+
+expression_1_pre
+    : expression_1 {
+        yy.data.semantics.processExpression(["||"]);
+    }
     ;
 
 expression_1
@@ -480,25 +554,38 @@ id_name
     ;
 
 array_call
-    : array_call_pre expression_0 R_BRACKET array_call_size {
-        // yy.data.semantics.storeArrayOperand($1);
+    : array_call_pre expression_0 array_call_r_bracket array_call_size {
+        yy.data.semantics.processArrayCall();
     }
     ;
 
 array_call_pre
-    : id_name array_call_size_pre {
+    : id_name array_call_l_bracket_start {
     }
     ;
 
 array_call_size
-    : array_call_size_pre expression_0 R_BRACKET array_call_size {
-        yy.data.semantics.processArraySize($1);
+    : 
+    | array_call_l_bracket expression_0 array_call_r_bracket array_call_size {
+        // yy.data.semantics.processArraySize($1);
     }
     ;
 
-array_call_size_pre
+array_call_l_bracket_start
     : L_BRACKET {
         yy.data.semantics.verifyArray();
+    }
+    ;
+
+array_call_l_bracket
+    : L_BRACKET {
+        yy.data.semantics.nextDim();
+    }
+    ;
+
+array_call_r_bracket
+    : R_BRACKET {
+        yy.data.semantics.createArrayQuad();
     }
     ;
 

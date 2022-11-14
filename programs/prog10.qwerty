@@ -1,0 +1,22 @@
+var array : int [10];
+
+func main () {
+
+    var i : int = 0;
+    var counter : int = 0;
+    while (i < 10) {
+        array[i] = counter;
+        i = i + 1;
+        counter = counter + 1;
+    }
+    print("────────────────────────────");
+    i = 0;
+    while (i < 10) {
+        print(array[i]);
+        i = i + 1; 
+    }
+    print(i);
+    print("---");
+    print(array);
+    return 0;
+}

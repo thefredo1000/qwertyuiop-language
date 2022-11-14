@@ -1,0 +1,31 @@
+var s1 : int = 10;
+var array : int [10] [12];
+
+func main () {
+
+    var counter : int = 0;
+    var i : int = 0;
+    while ( i < s1) {
+        var j : int = 0;
+        while ( j < 12) {
+            array[i][j] = counter + 100;
+            print(counter);
+            counter = counter + 1;
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print("----");
+    i = 0;
+    while ( i < s1) {
+        j = 0;
+        while ( j < 12) {
+            print(array[i][j]);
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(array);
+
+    return 3;
+}

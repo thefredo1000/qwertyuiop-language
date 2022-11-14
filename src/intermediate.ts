@@ -1,10 +1,11 @@
+const CLASS_MEM_SIZE = 0;
 const SCOPE_MEM_SIZE = 100000;
 const TYPE_MEM_SIZE = SCOPE_MEM_SIZE / 10;
 
 import { Stack } from "@datastructures-js/stack";
 
 interface MemoryBatch {
-  [key: string]: Array<number | undefined>;
+  [key: string]: Array<any | undefined>;
 }
 
 interface Func {
@@ -68,6 +69,7 @@ class Semantics {
 
   tempStack: Stack<string> = new Stack();
   scopeStack: Stack<string>;
+  classStack: Stack<string> = new Stack();
   operandStack: Stack<{ val: string; type: string }> = new Stack();
   operatorStack: Stack<string> = new Stack();
 
@@ -79,6 +81,7 @@ class Semantics {
   startDim: number | undefined;
   prevDim: number | undefined;
   r: number | undefined = 1;
+  dimStack: Stack<number> = new Stack();
 
   quadruples: Array<Quadruple> = new Array<Quadruple>();
   jumpsStack: Stack<number> = new Stack();
@@ -218,7 +221,8 @@ class Semantics {
     });
   }
 
-  saveArraySize(size: number) {
+  saveArraySize(s: number | string) {
+    const size = typeof s === "string" ? parseInt(s.toString()) : s;
     this.r = size * (this.r || 1);
     if (this.startDim === undefined) {
       this.startDim = this.dim.length;
@@ -263,7 +267,7 @@ class Semantics {
       });
       this.dirFunc[this.scopeStack.peek()].nLocalVar++;
       // Also save it in the memory
-      this.memory[this.scopeStack.peek()][type].push(expression);
+      this.memory[this.scopeStack.peek()][type].push(dir.toString());
       if (this.r !== undefined) {
         for (let i = 0; i < this.r; i++) {
           this.memory[this.scopeStack.peek()][type].push(undefined);
@@ -280,6 +284,44 @@ class Semantics {
     this.r = 1;
     this.prevDim = undefined;
     this.startDim = undefined;
+  }
+
+  openClass(name: string) {
+    this.classStack.push(name);
+  }
+  saveObjectVariable(
+    variable: any,
+    type: string,
+    expression: any,
+    isConst: boolean
+  ): void {
+    // If the variable is already declared in the current scope return error
+    if (
+      this.varTable.find(
+        (x: any) =>
+          x.varName === variable &&
+          (Math.floor(x.dir / SCOPE_MEM_SIZE) ===
+            this.dirFunc[this.scopeStack.peek()].scope ||
+            Math.floor(x.dir / SCOPE_MEM_SIZE) === this.dirFunc["global"].scope)
+      )
+    ) {
+      throw new Error(`Variable ${variable} already declared.`);
+    } else {
+      // If the variable is not declared in the current scope, save it
+
+      const dir =
+        this.dirFunc[this.scopeStack.peek()].scope * SCOPE_MEM_SIZE +
+        (isConst ? 500 : 0) +
+        getTypeDir(type) +
+        this.memory[this.scopeStack.peek()][type].length;
+      this.varTable.push({
+        varName: variable,
+        dir: dir,
+      });
+      this.dirFunc[this.scopeStack.peek()].nLocalVar++;
+      // Also save it in the memory
+      this.memory[this.scopeStack.peek()][type].push(expression);
+    }
   }
 
   saveVariable(
@@ -415,7 +457,7 @@ class Semantics {
         val: dir.toString(),
         type,
       });
-      return;
+      return dir;
     }
 
     const dir = this.memory["const"][type].length + getTypeDir(type);
@@ -427,7 +469,8 @@ class Semantics {
     if (type === "string" || type === "char") {
       operand = operand.replace(/['"]+/g, "");
     }
-    this.memory["const"][type].push(operand);
+    this.memory["const"][type].push(operand.toString());
+    return dir;
   }
 
   storeVariableOperand(variable: string) {
@@ -441,8 +484,6 @@ class Semantics {
       });
     }
   }
-
-
 
   getAddressType(dir: number) {
     const type = (Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5;
@@ -461,6 +502,9 @@ class Semantics {
   }
 
   getValueInMemory(key: string): any {
+    if (key[0] === "*") {
+      key = key.replace("*", "");
+    }
     const dir = parseInt(key);
 
     const scopeBase = Math.floor(dir / SCOPE_MEM_SIZE) % SCOPE_MEM_SIZE;
@@ -478,11 +522,90 @@ class Semantics {
   }
 
   verifyArray() {
-    const operand = this.operandStack.pop();
-    console.log(operand);
-    console.log(this.getValueInMemory(operand.val));
-    const index = this.getValueInMemory(operand.val)
-    console.table(this.getDimAt(index));
+    const operand = this.operandStack.peek();
+    this.varTable.forEach((x: any) => {
+      if (x.dir.toString() === operand.val) {
+        if (x.dim === undefined) {
+          throw new Error(`${x.varName} is not an array.`);
+        }
+        this.dimStack.push(x.dim);
+        this.startDim = x.dim;
+      }
+    });
+  }
+
+  nextDim() {
+    const currDim = this.getDimAt(this.dimStack.peek());
+    if (currDim.next !== undefined) {
+      this.dimStack.push(currDim.next);
+    }
+  }
+
+  createArrayQuad() {
+    const operand = this.operandStack.peek();
+    const dim = this.getDimAt(this.dimStack.peek());
+    if (parseInt(this.getValueInMemory(operand.val)) >= dim.lsup) {
+      throw new Error(`Index out of bounds.`);
+    }
+
+    if (dim.next !== undefined && dim.m !== undefined) {
+      const operand = this.operandStack.pop();
+      const tempDir =
+        this.tempStack.size() +
+        getTypeDir("int") +
+        this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+      // console.table(dim);
+
+      const mDir = this.storeConstOperand(dim.m, "int");
+
+      this.quadruples.push({
+        op: "*",
+        arg1: operand.val,
+        arg2: mDir.toString(),
+        result: tempDir.toString(),
+      });
+
+      this.tempStack.push(tempDir.toString());
+      this.operandStack.push({ val: tempDir.toString(), type: "int" });
+    }
+    if (this.startDim !== undefined && dim !== this.getDimAt(this.startDim)) {
+      const operand1 = this.operandStack.pop();
+      const operand2 = this.operandStack.pop();
+      const tempDir =
+        this.tempStack.size() +
+        getTypeDir("int") +
+        this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+      this.quadruples.push({
+        op: "+",
+        arg1: operand1.val,
+        arg2: operand2.val,
+        result: tempDir.toString(),
+      });
+
+      this.tempStack.push(tempDir.toString());
+      this.operandStack.pop();
+      this.operandStack.push({ val: tempDir.toString(), type: "int" });
+    }
+  }
+
+  processArrayCall() {
+    const temp = this.operandStack.pop();
+    const aux = this.operandStack.pop();
+
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "+",
+      arg1: temp.val,
+      arg2: (parseInt(aux.val)).toString(),
+      result: "*" + tempDir.toString(),
+    });
+    this.tempStack.push("*" + tempDir.toString());
+    this.operandStack.push({ val: "*" + tempDir.toString(), type: "int" });
   }
 
   returnFunction() {
@@ -492,7 +615,6 @@ class Semantics {
       this.scopeStack.peek() !== "main"
     ) {
       if (func.type === "void") {
-        console.log(func, "it's void");
         this.quadruples.push({
           op: "RETURN",
           arg1: "",
@@ -607,6 +729,9 @@ class Semantics {
     if (this.isComparisonOperator(operator)) {
       return "bool";
     }
+    if (operator === "&&" || operator === "||") {
+      return "bool";
+    }
     return "string";
   }
 
@@ -633,6 +758,7 @@ class Semantics {
       result: tempDir.toString(),
     });
 
+    console.log(resultType);
     this.operandStack.push({
       val: tempDir.toString(),
       type: resultType,
@@ -694,6 +820,35 @@ class Semantics {
     const jumpIndex = this.jumpsStack.pop();
     this.quadruples[jumpIndex].result = this.quadruples.length.toString();
   }
+
+  saveForLoop() {
+    this.jumpsStack.push(this.quadruples.length);
+  }
+  processForLoop() {
+    if (this.operandStack.peek().type !== "bool") {
+      throw new Error(`Type mismatch with ${this.operandStack.peek().val}`);
+    } else {
+      const { val: operand1 } = this.operandStack.pop();
+      this.quadruples.push({
+        op: "GOTOF",
+        arg1: operand1,
+        arg2: "",
+        result: "",
+      });
+      this.jumpsStack.push(this.quadruples.length - 1);
+    }
+  }
+  closeForLoop() {
+    const jumpIndex = this.jumpsStack.pop();
+    this.quadruples.push({
+      op: "GOTO",
+      arg1: "",
+      arg2: "",
+      result: this.jumpsStack.pop().toString(),
+    });
+    this.quadruples[jumpIndex].result = this.quadruples.length.toString();
+  }
+
   saveWhileLoop() {
     this.jumpsStack.push(this.quadruples.length);
   }
@@ -726,6 +881,7 @@ class Semantics {
     const variable = this.varTable.find((x) => x.varName === varName);
     const val = this.operandStack.pop();
     if (variable && val) {
+      console.log(variable, val);
       const type = this.getVariableType(variable.dir);
 
       if (!this.matchingType(type, val.type)) {
@@ -742,6 +898,22 @@ class Semantics {
     }
     this.tempStack.clear();
   }
+  storeArrayInStack() {
+    const val = this.operandStack.pop();
+    const arrayDir = this.operandStack.pop();
+
+    if (val) {
+      console.log(val, arrayDir);
+      const dir = this.getValueInMemory(arrayDir.val);
+      this.quadruples.push({
+        op: "=",
+        arg1: val.val,
+        arg2: "",
+        result: arrayDir.val,
+      });
+    }
+    this.tempStack.clear();
+  }
 
   closeProgram() {
     this.quadruples.push({
@@ -752,15 +924,15 @@ class Semantics {
     });
   }
 
-  processArraySize() {
-    const { val: operand, type } = this.operandStack.pop();
-    this.quadruples.push({
-      op: "ARRAYSIZE",
-      arg1: operand,
-      arg2: "",
-      result: "",
-    });
-  }
+  // processArraySize() {
+  //   const { val: operand, type } = this.operandStack.pop();
+  //   this.quadruples.push({
+  //     op: "ARRAYSIZE",
+  //     arg1: operand,
+  //     arg2: "",
+  //     result: "",
+  //   });
+  // }
 }
 
 export = Semantics;
