@@ -55,6 +55,7 @@
 "private:"      return "PRIVATE"
 "interface"     return "INTERFACE"
 "print"         return "PRINT"
+"sum"           return "SUM"
 "var"           return "VAR"
 "const"         return "CONST"
 "func"          return "FUNC"
@@ -302,12 +303,23 @@ statute
     | function_return
     | function_call
     // | object_attribute_call SEMICOLON
-    | print
+    | other_functions
+    ;
+
+other_functions
+    : print
+    | sum SEMICOLON
+    ;
+
+sum 
+    : SUM L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processSum();
+    }
     ;
 
 print
     : PRINT L_PAREN expression_0 R_PAREN SEMICOLON {
-        yy.data.semantics.processPrint($3);
+        yy.data.semantics.processPrint();
     }
     ;
 
@@ -496,6 +508,7 @@ expression_3
 expression_4_pre
     : expression_4 {
         yy.data.semantics.processExpression(["*", "/"]); 
+        console.log($1, "jimob")
     }
     ;
 
@@ -506,6 +519,7 @@ expression_3_prime
 
 mult_div_operand
     : ASTERISK {
+        console.log("repit")
         yy.data.semantics.storeOperator($1)
     }
     | SLASH {
@@ -535,13 +549,16 @@ expression_4
     }
     | id_call
     | object_attribute_call
+    | sum
     ;
 
 id_call
     : pre_call_function call_params R_PAREN  {
         yy.data.semantics.callFunction($1);
     }
-    | id_name 
+    | id_name {
+        console.log("first")
+    }
     | array_call {
 
     }

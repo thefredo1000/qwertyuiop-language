@@ -46,6 +46,57 @@ interface Quadruple {
   result: string | undefined;
 }
 
+interface SemanticCube {
+  [key: string]: {
+    [key: string]: {
+      [key: string]: string;
+    };
+  };
+}
+
+const semanticCube: SemanticCube = {
+  "+": {
+    int: {
+      int: "int",
+      float: "float",
+    },
+    float: {
+      int: "float",
+      float: "float",
+    },
+  },
+  "-": {
+    int: {
+      int: "int",
+      float: "float",
+    },
+    float: {
+      int: "float",
+      float: "float",
+    },
+  },
+  "*": {
+    int: {
+      int: "int",
+      float: "float",
+    },
+    float: {
+      int: "float",
+      float: "float",
+    },
+  },
+  "/": {
+    int: {
+      int: "int",
+      float: "float",
+    },
+    float: {
+      int: "float",
+      float: "float",
+    },
+  },
+};
+
 // TODO: Change this into binary or hex or something
 function getTypeDir(type: string) {
   if (type === "int") {
@@ -393,12 +444,12 @@ class Semantics {
       });
     }
 
-    this.varTable = this.varTable.filter((x) => {
-      return (
-        Math.floor(x.dir / SCOPE_MEM_SIZE) !==
-        this.dirFunc[this.scopeStack.peek()].scope
-      );
-    });
+    // this.varTable = this.varTable.filter((x) => {
+    //   return (
+    //     Math.floor(x.dir / SCOPE_MEM_SIZE) !==
+    //     this.dirFunc[this.scopeStack.peek()].scope
+    //   );
+    // });
   }
 
   preCallFunction(funcName: string) {
@@ -413,6 +464,7 @@ class Semantics {
         result: "",
       });
     }
+    this.operatorStack.push("(");
   }
   callFunction(funcName: string) {
     const func = this.dirFunc[funcName];
@@ -435,12 +487,19 @@ class Semantics {
           op: "GOSUB",
           arg1: func.quadStart.toString(),
           arg2: "",
+          result: funcName,
+        });
+        this.quadruples.push({
+          op: "=f",
+          arg1: funcName,
+          arg2: "",
           result: tempDir.toString(),
         });
         this.tempStack.push(tempDir.toString());
         this.operandStack.push({ val: tempDir.toString(), type: func.type });
       }
     }
+    this.operatorStack.pop();
   }
 
   storeOperand(operand: string, type: string) {
@@ -478,6 +537,7 @@ class Semantics {
     if (!varDir) {
       throw new Error(`${variable} does not exist.`);
     } else {
+      console.log(this.operatorStack, varDir, "help!");
       this.operandStack.push({
         val: varDir.dir.toString(),
         type: this.getVariableType(varDir.dir),
@@ -601,7 +661,7 @@ class Semantics {
     this.quadruples.push({
       op: "+",
       arg1: temp.val,
-      arg2: (parseInt(aux.val)).toString(),
+      arg2: parseInt(aux.val).toString(),
       result: "*" + tempDir.toString(),
     });
     this.tempStack.push("*" + tempDir.toString());
@@ -628,7 +688,13 @@ class Semantics {
           this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
 
         if (this.operandStack.peek().type !== func.type) {
-          throw new Error(`Return type does not match function type.`);
+          console.log(this.operandStack.peek());
+          console.table(this.memory);
+          throw new Error(
+            `Return type (${
+              this.operandStack.peek().type
+            }) does not match function type (${func.type}).`
+          );
         }
 
         this.quadruples.push({
@@ -642,6 +708,7 @@ class Semantics {
   }
 
   storeOperator(operator: string) {
+    console.log("why???", operator);
     this.operatorStack.push(operator);
   }
 
@@ -710,29 +777,26 @@ class Semantics {
 
   getOperatorType(operator: string, operand1: any, operand2: any) {
     // todo: add more operators and their types
+    const type1 = this.getAddressType(operand1);
+    const type2 = this.getAddressType(operand2);
+
     if (
-      operator === "+" ||
-      operator === "-" ||
-      operator === "*" ||
-      operator === "/"
+      type1 === "string" ||
+      type2 === "string" ||
+      type1 === "char" ||
+      type2 === "char"
     ) {
-      if (operand1.type === "int" && operand2.type === "int") {
-        return "int";
-      } else if (operand1.type === "float" && operand2.type === "float") {
-        return "float";
-      } else if (operand1.type === "int" && operand2.type === "float") {
-        return "float";
-      } else {
-        return "float";
-      }
+      return "string";
     }
+    console.log(this.isComparisonOperator(operator));
     if (this.isComparisonOperator(operator)) {
       return "bool";
     }
     if (operator === "&&" || operator === "||") {
       return "bool";
     }
-    return "string";
+
+    return semanticCube[operator][type1][type2];
   }
 
   processExpression(operators: string[]) {
@@ -741,11 +805,14 @@ class Semantics {
     }
     if (this.operandStack.size() <= 1) return;
     const operatorStr = this.operatorStack.pop();
+    if (operatorStr === "(") return;
     const { val: operand2, type: type2 } = this.operandStack.pop();
     const { val: operand1, type: type1 } = this.operandStack.pop();
 
     // TODO: check types
+    console.log(operatorStr, operand1, operand2, "hijasklñd");
     const resultType = this.getOperatorType(operatorStr, operand1, operand2);
+    console.log(resultType, "result type");
     const tempDir =
       this.tempStack.size() +
       getTypeDir(resultType) +
@@ -765,6 +832,23 @@ class Semantics {
     });
 
     this.tempStack.push(tempDir.toString());
+  }
+
+  processSum() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "SUM",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
   processPrint() {

@@ -1,0 +1,22 @@
+
+var a1 : int;
+
+func fact (num: int) : int {
+    print(num);
+    if (num == 0) {
+        print("nos vamo");
+        return 1;
+    }
+    var e : int = fact(num - 1);
+    print(e);
+    return num;
+}
+
+func main () {
+    var a : int = 4;
+    var b : int = 4;
+
+    print(fact(b));
+    
+    return 3;
+}

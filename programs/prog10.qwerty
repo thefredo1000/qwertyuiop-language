@@ -18,5 +18,7 @@ func main () {
     print(i);
     print("---");
     print(array);
+
+    print(sum(array));
     return 0;
 }

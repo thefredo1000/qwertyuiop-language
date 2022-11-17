@@ -70,6 +70,10 @@ class VirtualMachine {
   memory: Mem = {};
   quadruples: Array<Quadruple> = new Array<Quadruple>();
   dirFunc: DirFunc;
+  funcCounter: {
+    [key: string]: number;
+  } = {};
+  returnStack: Stack<any> = new Stack();
   functionStack: Stack<string> = new Stack();
   paramCounter: number = 0;
 
@@ -117,6 +121,9 @@ class VirtualMachine {
         break;
       case "=":
         this.assign(quadruple);
+        break;
+      case "=f":
+        this.assignFunction(quadruple);
         break;
       case ">":
         this.greaterThan(quadruple);
@@ -175,6 +182,9 @@ class VirtualMachine {
       case "PRINT":
         this.print(quadruple);
         break;
+      case "SUM":
+        this.sum(quadruple);
+        break;
       case "READ":
         // this.read(quadruple);
         break;
@@ -221,8 +231,22 @@ class VirtualMachine {
       ((Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5) * TYPE_MEM_SIZE;
 
     const scope = Object.keys(this.memory)[scopeBase];
-    const val = this.memory[scope][valType][dir - base];
-    return val;
+    const scopeCount = Object.keys(this.funcCounter).find(
+      (key) => key === scope
+    );
+    if (scopeCount !== undefined) {
+      const val =
+        this.memory[
+          scopeCount +
+            (!(this.funcCounter[scopeCount] - 1)
+              ? this.funcCounter[scopeCount]
+              : this.funcCounter[scopeCount] - 1)
+        ][valType][dir - base];
+      return val;
+    } else {
+      const val = this.memory[scope][valType][dir - base];
+      return val;
+    }
   }
 
   setValueInMemory(key: any, value: any) {
@@ -243,7 +267,16 @@ class VirtualMachine {
       ((Math.floor(dir / TYPE_MEM_SIZE) % 10) % 5) * TYPE_MEM_SIZE;
 
     const scope = Object.keys(this.memory)[scopeBase];
-    this.memory[scope][valType][dir - base] = value;
+    const scopeCount = Object.keys(this.funcCounter).find(
+      (key) => key === scope
+    );
+    if (scopeCount !== undefined) {
+      this.memory[scopeCount + this.funcCounter[scopeCount]][valType][
+        dir - base
+      ] = value;
+    } else {
+      this.memory[scope][valType][dir - base] = value;
+    }
   }
 
   add(quadruple: Quadruple) {
@@ -366,6 +399,19 @@ class VirtualMachine {
     }
   }
 
+  assignFunction(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const aux = quadruple.result ? quadruple.result : "";
+    const result: any =
+      aux[0] === "*" ? (this.getValueInMemory(aux) + 1).toString() : aux;
+
+    if (arg1) {
+      this.setValueInMemory(
+        result,
+        this.getValueInMemory(this.returnStack.pop())
+      );
+    }
+  }
   assign(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
     const aux = quadruple.result ? quadruple.result : "";
@@ -413,24 +459,33 @@ class VirtualMachine {
     }
     return res;
   }
+  sumArray(val: { varName: string; dir: number; dim?: number }) {
+    const arr = this.exportArray(val);
+    if (arr === undefined) {
+      return 0;
+    }
+    return arr.reduce((partialSum, a) => partialSum + a, 0);
+  }
 
   printArray(val: { varName: string; dir: number; dim?: number }) {
-    if (val.dim === undefined) {
-      return;
-    }
-    var dim = this.getDimAt(val.dim);
-    let dimensions = [];
-    while (dim !== undefined) {
-      dimensions.push(dim.lsup);
-      if (dim.next !== undefined) {
-        dim = this.getDimAt(dim.next);
-      } else {
-        break;
+    console.log(this.exportArray(val));
+  }
+
+  sum(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+
+        this.setValueInMemory(result, this.sumArray(e));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
       }
-    }
-    let total = dimensions.reduce((a, b) => a * b, 1);
-    for (let i = 2; i <= total + 1; i++) {
-      console.log(this.getValueInMemory((val.dir + i).toString()));
+    } else {
+      console.log("null");
     }
   }
 
@@ -528,7 +583,6 @@ class VirtualMachine {
     if (arg1 && arg2 && result) {
       const val1 = this.getValueInMemory(arg1);
       const val2 = this.getValueInMemory(arg2);
-
       if (Number(val1) <= Number(val2)) {
         this.setValueInMemory(result, 1);
       } else {
@@ -545,8 +599,7 @@ class VirtualMachine {
     if (arg1 && arg2 && result) {
       const val1 = this.getValueInMemory(arg1);
       const val2 = this.getValueInMemory(arg2);
-
-      if (val1 === val2) {
+      if (val1.toString() === val2.toString()) {
         this.setValueInMemory(result, 1);
       } else {
         this.setValueInMemory(result, 0);
@@ -562,8 +615,7 @@ class VirtualMachine {
     if (arg1 && arg2 && result) {
       const val1 = this.getValueInMemory(arg1);
       const val2 = this.getValueInMemory(arg2);
-
-      if (val1 !== val2) {
+      if (val1.toString() !== val2.toString()) {
         this.setValueInMemory(result, 1);
       } else {
         this.setValueInMemory(result, 0);
@@ -574,25 +626,41 @@ class VirtualMachine {
   era(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
     if (arg1) {
-      const func = this.dirFunc[arg1];
-
+      if (this.funcCounter[arg1] === undefined) {
+        this.dirFunc[arg1].quadCount = this.dirFunc[arg1].quadCount + 1;
+      }
+      const func =
+        this.dirFunc[
+          arg1 + (this.funcCounter[arg1] ? this.funcCounter[arg1] : "")
+        ];
       if (!func) {
-        throw new Error("Function not found");
+        throw new Error(`Function ${func} not found`);
       }
 
-      func.parameterTable.forEach((param) => {
-        this.dirFunc[arg1].scope;
-        // Also save it in the memory
-        // this.memory[arg1][param.type].push(undefined);
-        // this.memory[arg1][param];
-      });
+      if (this.funcCounter[arg1] === undefined) {
+        this.funcCounter[arg1] = 1;
+      } else {
+        this.funcCounter[arg1]++;
+      }
+      this.memory[arg1 + this.funcCounter[arg1]] = newMemoryBatch();
 
-      this.functionStack.push(arg1);
+      this.functionStack.push(arg1 + this.funcCounter[arg1]);
+
+      this.dirFunc[arg1 + this.funcCounter[arg1]] = Object.assign(
+        {},
+        this.dirFunc[arg1]
+      );
+      this.dirFunc[arg1 + this.funcCounter[arg1]].parameterTable = this.dirFunc[
+        arg1 + this.funcCounter[arg1]
+      ].parameterTable.map((p) => {
+        return ((Object.keys(this.memory).length - 1) * 100000).toString();
+      });
     }
   }
 
   goSub(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
+    const res = quadruple.result;
     if (arg1) {
       if (
         this.paramCounter <
@@ -600,6 +668,7 @@ class VirtualMachine {
       ) {
         throw new Error("Not enough parameters");
       }
+
       this.instructionPointerStack.push(this.instructionPointer);
       this.instructionPointer = parseInt(arg1) - 1;
     }
@@ -627,34 +696,37 @@ class VirtualMachine {
         const valResult = val1;
         this.setValueInMemory(result, valResult);
       }
+      this.returnStack.push(result);
     }
+    const aux = this.quadruples[this.instructionPointerStack.peek()];
+
     this.instructionPointer = this.instructionPointerStack.pop();
   }
 
   param(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
-
-    if (
-      this.paramCounter >=
-      this.dirFunc[this.functionStack.peek()].parameterTable.length
-    ) {
-      throw new Error("Too many parameters");
-    }
-
     if (arg1) {
+      if (
+        this.paramCounter >=
+        this.dirFunc[
+          this.functionStack.peek() +
+            (this.funcCounter[arg1] ? this.funcCounter[arg1] : "")
+        ].parameterTable.length
+      ) {
+        throw new Error("Too many parameters");
+      }
       const val1 = this.getValueInMemory(arg1);
       const dir =
-        this.dirFunc[this.functionStack.peek()].parameterTable[
-          this.paramCounter
-        ];
-
+        this.dirFunc[
+          this.functionStack.peek() +
+            (this.funcCounter[arg1] ? this.funcCounter[arg1] : "")
+        ].parameterTable[this.paramCounter];
       if (
         this.getAddressType(parseInt(dir)) !==
         this.getAddressType(parseInt(arg1))
       ) {
         throw new Error("Type mismatch");
       }
-
       this.setValueInMemory(dir.toString(), val1);
       this.paramCounter++;
     }
