@@ -1,0 +1,19 @@
+func factLoop(num: int) : int {
+    var result : int = num;
+    if (num == 0 || num == 1) {
+        return 1; 
+    }
+    while (num > 1) { 
+        num = num - 1;
+        result = result * num;
+    }
+    return result;
+}
+
+func main () {
+    var a : int = 4;
+
+    print(factLoop(a));
+    
+    return 3;
+}

@@ -1,0 +1,26 @@
+var array : float [100];
+
+func main () {
+
+    var i : int = 0;
+    var counter : int = 0;
+    while (i < 100) {
+        array[i] = sin(counter * (PI * 4) / 120) * 15.0;
+        i = i + 1;
+        counter = counter + 1;
+    }
+    print("────────────────────────────");
+    i = 0;
+    while (i < 20) {
+        print(array[i]);
+        i = i + 1; 
+    }
+    print(i);
+    print("---");
+    print(array);
+
+    chart(array);
+
+    print(sin(10 * PI));
+    return 0;
+}

@@ -851,6 +851,72 @@ class Semantics {
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
+  processSin() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "SIN",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+
+  processCos() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "COS",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processTan() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "TAN",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processChart() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "CHART",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+
   processPrint() {
     const { val: operand, type } = this.operandStack.pop();
     this.quadruples.push({
@@ -862,6 +928,7 @@ class Semantics {
   }
   processCallParams() {
     const { val: operand, type } = this.operandStack.pop();
+    console.log("CAMINO POR LA CIUDAD", operand);
     this.quadruples.push({
       op: "PARAM",
       arg1: operand,

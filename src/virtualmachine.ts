@@ -2,6 +2,7 @@ const SCOPE_MEM_SIZE = 100000;
 const TYPE_MEM_SIZE = SCOPE_MEM_SIZE / 10;
 
 import { Stack } from "@datastructures-js/stack";
+var asciichart = require("asciichart");
 
 interface MemoryBatch {
   [key: string]: Array<any>;
@@ -73,7 +74,8 @@ class VirtualMachine {
   funcCounter: {
     [key: string]: number;
   } = {};
-  returnStack: Stack<any> = new Stack();
+  returnStack: { [key: string]: Stack<any> } = {};
+  currFunc: string = "";
   functionStack: Stack<string> = new Stack();
   paramCounter: number = 0;
 
@@ -185,6 +187,18 @@ class VirtualMachine {
       case "SUM":
         this.sum(quadruple);
         break;
+      case "CHART":
+        this.chart(quadruple);
+        break;
+      case "SIN":
+        this.sin(quadruple);
+        break;
+      case "COS":
+        this.cos(quadruple);
+        break;
+      case "TAN":
+        this.tan(quadruple);
+        break;
       case "READ":
         // this.read(quadruple);
         break;
@@ -235,6 +249,13 @@ class VirtualMachine {
       (key) => key === scope
     );
     if (scopeCount !== undefined) {
+      // console.log(
+      //   "scopeCount",
+      //   scopeCount +
+      //     (!(this.funcCounter[scopeCount] - 1)
+      //       ? this.funcCounter[scopeCount]
+      //       : this.funcCounter[scopeCount] - 1)
+      // );
       const val =
         this.memory[
           scopeCount +
@@ -250,6 +271,12 @@ class VirtualMachine {
   }
 
   setValueInMemory(key: any, value: any) {
+    // if (key === "100002") {
+    //   console.log("SETVAL aqui es", value);
+    // }
+    // if (key === "300001") {
+    //   console.log("SETVAL 300001 aqui es", value);
+    // }
     if (key && key[0] === "*") {
       // key = this.getValueInMemory(key.slice(1));
       key = key.replace("*", "");
@@ -271,10 +298,22 @@ class VirtualMachine {
       (key) => key === scope
     );
     if (scopeCount !== undefined) {
+      // console.log(
+      //   "XXXXXXXXXXXXXX>",
+      //   key,
+      //   scope,
+      //   ,
+      //   value
+      // );
+      // console.table(this.memory);
+      // console.log(value);
+      this.funcCounter[scopeCount]++;
       this.memory[scopeCount + this.funcCounter[scopeCount]][valType][
         dir - base
       ] = value;
+      this.funcCounter[scopeCount]--;
     } else {
+      // console.log("============>", key, scope, value);
       this.memory[scope][valType][dir - base] = value;
     }
   }
@@ -335,7 +374,7 @@ class VirtualMachine {
     if (arg1 && arg2 && result) {
       const val1 = this.getValueInMemory(arg1);
       const val2 = this.getValueInMemory(arg2);
-
+      // console.log("PINTAMOS TODA LA CASA", arg1, val1, arg2, val2);
       if (
         this.getAddressType(parseInt(arg1)) === "int" &&
         this.getAddressType(parseInt(arg2)) === "int"
@@ -381,7 +420,7 @@ class VirtualMachine {
       const val2: boolean = this.getValueInMemory(arg2) ? true : false;
 
       const valResult: boolean = val1 && val2;
-      this.setValueInMemory(result, valResult);
+      this.setValueInMemory(result, valResult ? 1 : 0);
     }
   }
 
@@ -395,7 +434,7 @@ class VirtualMachine {
       const val2: boolean = this.getValueInMemory(arg2) ? true : false;
 
       const valResult: boolean = val1 || val2;
-      this.setValueInMemory(result, valResult);
+      this.setValueInMemory(result, valResult ? 1 : 0);
     }
   }
 
@@ -406,10 +445,13 @@ class VirtualMachine {
       aux[0] === "*" ? (this.getValueInMemory(aux) + 1).toString() : aux;
 
     if (arg1) {
-      this.setValueInMemory(
-        result,
-        this.getValueInMemory(this.returnStack.pop())
-      );
+      // console.log(
+      //   "ASSIGN FUN now im",
+      //   this.returnStack[this.currFunc].peek(),
+      //   result
+      // );
+      // console.log("QUESESOOOOOOO", this.returnStack[this.currFunc].peek(), result);
+      this.setValueInMemory(result, this.returnStack[this.currFunc].pop());
     }
   }
   assign(quadruple: Quadruple) {
@@ -423,7 +465,14 @@ class VirtualMachine {
 
       if (this.getAddressType(parseInt(result)) === "int") {
         const valResult = Math.floor(Number(val1));
+        // if (arg1 === "100002" && result === "300001") {
+        //   console.log("ASSIGN ", arg1, val1, result, valResult);
+        // } else {
+        //   console.log("KEPASO");
+        // }
+        this.funcCounter[this.currFunc]--;
         this.setValueInMemory(result, valResult);
+        this.funcCounter[this.currFunc]++;
       } else if (this.getAddressType(parseInt(result)) === "float") {
         const valResult = Number(val1);
         this.setValueInMemory(result, valResult);
@@ -459,6 +508,7 @@ class VirtualMachine {
     }
     return res;
   }
+
   sumArray(val: { varName: string; dir: number; dim?: number }) {
     const arr = this.exportArray(val);
     if (arr === undefined) {
@@ -483,6 +533,83 @@ class VirtualMachine {
         throw new Error(
           `sum() function can only be used with arrays, not with ${arg1}`
         );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  sin(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        throw new Error(`sin() function can't be used with arrays`);
+      } else if (arg1[0] === "*") {
+        const val1 = this.getValueInMemory(arg1);
+        const res = Math.sin(this.getValueInMemory((val1 + 1).toString()));
+        const resDir = quadruple.result;
+        this.setValueInMemory(resDir, res);
+      } else {
+        const res = Math.sin(this.getValueInMemory(arg1));
+        const resDir = quadruple.result;
+        this.setValueInMemory(resDir, res);
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  cos(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        throw new Error(`cos() function can't be used with arrays`);
+      } else if (arg1[0] === "*") {
+        const val1 = this.getValueInMemory(arg1);
+        const res = Math.cos(this.getValueInMemory((val1 + 1).toString()));
+        const resDir = quadruple.result;
+        this.setValueInMemory(resDir, res);
+      } else {
+        const res = Math.cos(this.getValueInMemory(arg1));
+        const resDir = quadruple.result;
+        this.setValueInMemory(resDir, res);
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  tan(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        throw new Error(`tan() function can't be used with arrays`);
+      } else if (arg1[0] === "*") {
+        const val1 = this.getValueInMemory(arg1);
+        const res = Math.tan(this.getValueInMemory((val1 + 1).toString()));
+        const resDir = quadruple.result;
+        this.setValueInMemory(resDir, res);
+      } else {
+        const res = Math.tan(this.getValueInMemory(arg1));
+        const resDir = quadruple.result;
+        this.setValueInMemory(resDir, res);
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  chart(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        console.log(asciichart.plot(this.exportArray(e)));
+      } else {
+        console.log("nulls");
       }
     } else {
       console.log("null");
@@ -597,8 +724,8 @@ class VirtualMachine {
     const result = quadruple.result;
 
     if (arg1 && arg2 && result) {
-      const val1 = this.getValueInMemory(arg1);
       const val2 = this.getValueInMemory(arg2);
+      const val1 = this.getValueInMemory(arg1);
       if (val1.toString() === val2.toString()) {
         this.setValueInMemory(result, 1);
       } else {
@@ -623,7 +750,9 @@ class VirtualMachine {
     }
   }
 
+  eraCounter = 0;
   era(quadruple: Quadruple) {
+    this.eraCounter++;
     const arg1 = quadruple.arg1;
     if (arg1) {
       if (this.funcCounter[arg1] === undefined) {
@@ -642,10 +771,9 @@ class VirtualMachine {
       } else {
         this.funcCounter[arg1]++;
       }
+      this.currFunc = arg1;
       this.memory[arg1 + this.funcCounter[arg1]] = newMemoryBatch();
-
       this.functionStack.push(arg1 + this.funcCounter[arg1]);
-
       this.dirFunc[arg1 + this.funcCounter[arg1]] = Object.assign(
         {},
         this.dirFunc[arg1]
@@ -688,19 +816,32 @@ class VirtualMachine {
 
       if (this.getAddressType(parseInt(result)) === "int") {
         const valResult = Math.floor(Number(val1));
+        // console.log("valResult", valResult);
         this.setValueInMemory(result, valResult);
       } else if (this.getAddressType(parseInt(result)) === "float") {
         const valResult = Number(val1);
+        // console.log("valResult", valResult);
         this.setValueInMemory(result, valResult);
       } else {
         const valResult = val1;
+        // console.log("valResult", valResult);
         this.setValueInMemory(result, valResult);
       }
-      this.returnStack.push(result);
+      if (this.returnStack[this.currFunc] === undefined) {
+        // console.log("ayuda", this.returnStack);
+        this.returnStack[this.currFunc] = new Stack<any>([
+          this.getValueInMemory(result),
+        ]);
+      } else {
+        this.returnStack[this.currFunc].push(this.getValueInMemory(result));
+        // console.log("ayuda", this.returnStack);
+        this.funcCounter[this.currFunc]--;
+      }
     }
     const aux = this.quadruples[this.instructionPointerStack.peek()];
 
     this.instructionPointer = this.instructionPointerStack.pop();
+    // console.log("INSTRUCTION POINTER IS", this.instructionPointer);
   }
 
   param(quadruple: Quadruple) {
@@ -715,12 +856,16 @@ class VirtualMachine {
       ) {
         throw new Error("Too many parameters");
       }
-      const val1 = this.getValueInMemory(arg1);
+
+      const val1 = isNaN(this.getValueInMemory(arg1))
+        ? 0
+        : this.getValueInMemory(arg1);
       const dir =
         this.dirFunc[
           this.functionStack.peek() +
             (this.funcCounter[arg1] ? this.funcCounter[arg1] : "")
         ].parameterTable[this.paramCounter];
+
       if (
         this.getAddressType(parseInt(dir)) !==
         this.getAddressType(parseInt(arg1))

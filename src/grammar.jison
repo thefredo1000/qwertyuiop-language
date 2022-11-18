@@ -6,6 +6,7 @@
 ['].[']                     return "CTE_CHAR"
 ["][^".]*["]                    return "CTE_STRING"
 [+-]?([0-9])+[.]([0-9])+    return "CTE_FLOAT"
+"PI"                        return "CTE_PI"
 [+-]?([0-9])+               return "CTE_INT"
 
 
@@ -55,11 +56,21 @@
 "private:"      return "PRIVATE"
 "interface"     return "INTERFACE"
 "print"         return "PRINT"
-"sum"           return "SUM"
 "var"           return "VAR"
 "const"         return "CONST"
 "func"          return "FUNC"
 "return"        return "RETURN"
+"sum"           return "SUM"
+"sin"           return "SIN"
+"cos"           return "COS"
+"tan"           return "TAN"
+"min"           return "MIN"
+"max"           return "MAX"
+"product"       return "PRODUCT"
+"mean"          return "MEAN"
+"mode"          return "MODE"
+"median"        return "MEDIAN"
+"chart"         return "CHART"
 
 
 /* TYPES */
@@ -309,11 +320,36 @@ statute
 other_functions
     : print
     | sum SEMICOLON
+    | chart SEMICOLON
     ;
 
 sum 
     : SUM L_PAREN expression_0 R_PAREN   {
         yy.data.semantics.processSum();
+    }
+    ;
+
+sin 
+    : SIN L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processSin();
+    }
+    ;
+
+cos 
+    : COS L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processCos();
+    }
+    ;
+
+tan 
+    : TAN L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processTan();
+    }
+    ;
+
+chart
+    : CHART L_PAREN expression_0 R_PAREN {
+        yy.data.semantics.processChart();
     }
     ;
 
@@ -531,7 +567,10 @@ expression_4
     : CTE_FLOAT {
         yy.data.semantics.storeConstOperand($1, "float");
     }
-    | L_PAREN expression R_PAREN 
+    | CTE_PI {
+        yy.data.semantics.storeConstOperand(3.141592, "float");
+    }
+    | L_PAREN expression_0 R_PAREN 
     | CTE_INT {
         yy.data.semantics.storeConstOperand($1, "int");
     }
@@ -550,6 +589,7 @@ expression_4
     | id_call
     | object_attribute_call
     | sum
+    | sin
     ;
 
 id_call

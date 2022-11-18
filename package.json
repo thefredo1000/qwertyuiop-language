@@ -18,9 +18,11 @@
   "dependencies": {
     "@datastructures-js/queue": "^4.2.3",
     "@datastructures-js/stack": "^3.1.4",
+    "asciichart": "^1.5.25",
     "chalk": "^5.1.2",
     "commander": "^9.4.1",
-    "jison": "^0.4.18"
+    "jison": "^0.4.18",
+    "simple-statistics": "^7.8.0"
   },
   "bin": {
     "qwertyuiop": "./dist/index.js"

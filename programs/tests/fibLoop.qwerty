@@ -1,0 +1,22 @@
+func fibLoop(num: int) : int {
+    var i : int = 1;
+    var n1 : int = 0;
+    var n2 : int = 1;
+    var nextTerm : int = 0;
+    while (i <= num) { 
+        print(n1);
+        nextTerm = n1 + n2;
+        n1 = n2;
+        n2 = nextTerm;
+        i = i + 1;
+    }
+    return n1;
+}
+
+func main () {
+    var a : int = 40;
+
+    fibLoop(a);
+    
+    return 3;
+}

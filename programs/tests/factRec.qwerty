@@ -1,10 +1,11 @@
 func factRec(num: int) : int {
-    if (num == 1) {
-        print("nos vamo");
+    print("num");
+    print(num);
+    if (num <= 1) {
         return 1;
     }
-    var res : int = factRec(num - 1);
-    return res * num;
+    print("res");
+    return factRec(num - 1) * num;
 }
 
 func main () {
