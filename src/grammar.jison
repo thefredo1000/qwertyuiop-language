@@ -7,6 +7,7 @@
 ["][^".]*["]                    return "CTE_STRING"
 [+-]?([0-9])+[.]([0-9])+    return "CTE_FLOAT"
 "PI"                        return "CTE_PI"
+"rand"                      return "RAND"
 [+-]?([0-9])+               return "CTE_INT"
 
 
@@ -67,6 +68,9 @@
 "min"           return "MIN"
 "max"           return "MAX"
 "product"       return "PRODUCT"
+"find"          return "FIND"
+"sort"          return "SORT"
+
 "mean"          return "MEAN"
 "mode"          return "MODE"
 "median"        return "MEDIAN"
@@ -320,12 +324,74 @@ statute
 other_functions
     : print
     | sum SEMICOLON
+    | min SEMICOLON
+    | max SEMICOLON
+    | product SEMICOLON
+    | mean SEMICOLON
+    | mode SEMICOLON
+    | median SEMICOLON
+    | sin SEMICOLON
+    | cos SEMICOLON
+    | tan SEMICOLON
     | chart SEMICOLON
+    | sort SEMICOLON
+    | find SEMICOLON
     ;
 
 sum 
     : SUM L_PAREN expression_0 R_PAREN   {
         yy.data.semantics.processSum();
+    }
+    ;
+
+rand 
+    : RAND L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processRand();
+    }
+    ;
+min 
+    : MIN L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processMin();
+    }
+    ;
+
+max 
+    : MAX L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processMax();
+    }
+    ;
+
+product 
+    : PRODUCT L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processProd();
+    }
+    ;
+
+find 
+    : FIND L_PAREN expression_0 COMMA expression_0 R_PAREN   {
+        yy.data.semantics.processFind();
+    }
+    ;
+sort 
+    : SORT L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processSort();
+    }
+    ;
+mean 
+    : MEAN L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processMean();
+    }
+    ;
+
+mode 
+    : MODE L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processMode();
+    }
+    ;
+
+median 
+    : MEDIAN L_PAREN expression_0 R_PAREN   {
+        yy.data.semantics.processMedian();
     }
     ;
 
@@ -590,6 +656,17 @@ expression_4
     | object_attribute_call
     | sum
     | sin
+    | cos
+    | tan
+    | min
+    | max
+    | product
+    | sort
+    | find
+    | mean
+    | mode
+    | median
+    | rand
     ;
 
 id_call

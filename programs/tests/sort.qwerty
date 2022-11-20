@@ -1,0 +1,15 @@
+var array : int [50];
+
+func main () {
+    var i : int = 50;
+    for (var j : int = 0; j < 50; j = j + 1;) {
+        array[j] = rand(20);
+    }
+    print(array);
+    chart(array);
+    sort(array);
+    print(array);
+    chart(array);
+    print(find(array, 3));
+    return 3;
+}

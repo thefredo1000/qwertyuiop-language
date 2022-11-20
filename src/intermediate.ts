@@ -851,6 +851,152 @@ class Semantics {
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
+  processRand() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "RAND",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processMin() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "MIN",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processMax() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "MAX",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processProd() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "PROD",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processFind() {
+    const { val: operand1, type } = this.operandStack.pop();
+    const { val: operand2 } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "FIND",
+      arg1: operand2,
+      arg2: operand1,
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processSort() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "SORT",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processMean() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "MEAN",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+
+  processMode() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "MODE",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
+  processMedian() {
+    const { val: operand, type } = this.operandStack.pop();
+    const tempDir =
+      this.tempStack.size() +
+      getTypeDir("int") +
+      this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
+
+    this.quadruples.push({
+      op: "MEDIAN",
+      arg1: operand,
+      arg2: "",
+      result: tempDir.toString(),
+    });
+    this.tempStack.push(tempDir.toString());
+    this.operandStack.push({ val: tempDir.toString(), type: "int" });
+  }
   processSin() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =

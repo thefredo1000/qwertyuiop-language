@@ -1,0 +1,9 @@
+var array : int [10];
+
+func main () {
+    for (var j : int = 0; j < 10; j = j + 1;) {
+        array[j] = j;
+        print(array[j]);
+    }
+    return 3;
+}

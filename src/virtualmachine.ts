@@ -2,6 +2,7 @@ const SCOPE_MEM_SIZE = 100000;
 const TYPE_MEM_SIZE = SCOPE_MEM_SIZE / 10;
 
 import { Stack } from "@datastructures-js/stack";
+import { min, max, product, mean, mode, median } from "simple-statistics";
 var asciichart = require("asciichart");
 
 interface MemoryBatch {
@@ -186,6 +187,33 @@ class VirtualMachine {
         break;
       case "SUM":
         this.sum(quadruple);
+        break;
+      case "RAND":
+        this.rand(quadruple);
+        break;
+      case "MIN":
+        this.min(quadruple);
+        break;
+      case "MAX":
+        this.max(quadruple);
+        break;
+      case "PROD":
+        this.prod(quadruple);
+        break;
+      case "MEAN":
+        this.mean(quadruple);
+        break;
+      case "MODE":
+        this.mode(quadruple);
+        break;
+      case "MEDIAN":
+        this.median(quadruple);
+        break;
+      case "FIND":
+        this.find(quadruple);
+        break;
+      case "SORT":
+        this.sort(quadruple);
         break;
       case "CHART":
         this.chart(quadruple);
@@ -445,31 +473,23 @@ class VirtualMachine {
       aux[0] === "*" ? (this.getValueInMemory(aux) + 1).toString() : aux;
 
     if (arg1) {
-      // console.log(
-      //   "ASSIGN FUN now im",
-      //   this.returnStack[this.currFunc].peek(),
-      //   result
-      // );
-      // console.log("QUESESOOOOOOO", this.returnStack[this.currFunc].peek(), result);
       this.setValueInMemory(result, this.returnStack[this.currFunc].pop());
     }
   }
   assign(quadruple: Quadruple) {
-    const arg1 = quadruple.arg1;
+    const arg1Aux: string = quadruple.arg1 !== undefined ? quadruple.arg1 : "";
+    const arg1 =
+      arg1Aux[0] === "*"
+        ? (this.getValueInMemory(arg1Aux) + 1).toString()
+        : arg1Aux;
     const aux = quadruple.result ? quadruple.result : "";
     const result: any =
       aux[0] === "*" ? (this.getValueInMemory(aux) + 1).toString() : aux;
 
     if (arg1) {
       const val1 = this.getValueInMemory(arg1);
-
       if (this.getAddressType(parseInt(result)) === "int") {
         const valResult = Math.floor(Number(val1));
-        // if (arg1 === "100002" && result === "300001") {
-        //   console.log("ASSIGN ", arg1, val1, result, valResult);
-        // } else {
-        //   console.log("KEPASO");
-        // }
         this.funcCounter[this.currFunc]--;
         this.setValueInMemory(result, valResult);
         this.funcCounter[this.currFunc]++;
@@ -509,6 +529,50 @@ class VirtualMachine {
     return res;
   }
 
+  importArray(val: { varName: string; dir: number; dim?: number }, arr: any) {
+    if (val.dim === undefined) {
+      return;
+    }
+    var dim = this.getDimAt(val.dim);
+    let dimensions = [];
+    while (dim !== undefined) {
+      dimensions.push(dim.lsup);
+      if (dim.next !== undefined) {
+        dim = this.getDimAt(dim.next);
+      } else {
+        break;
+      }
+    }
+    let total = dimensions.reduce((a, b) => a * b, 1);
+    let res = [];
+    for (let i = 2; i <= total + 1; i++) {
+      res.push(this.getValueInMemory((val.dir + i).toString()));
+      this.setValueInMemory((val.dir + i).toString(), arr[i - 2]);
+    }
+    return res;
+  }
+
+  setArray(val: { varName: string; dir: number; dim?: number }) {
+    if (val.dim === undefined) {
+      return;
+    }
+    var dim = this.getDimAt(val.dim);
+    let dimensions = [];
+    while (dim !== undefined) {
+      dimensions.push(dim.lsup);
+      if (dim.next !== undefined) {
+        dim = this.getDimAt(dim.next);
+      } else {
+        break;
+      }
+    }
+    let total = dimensions.reduce((a, b) => a * b, 1);
+    let res = [];
+    for (let i = 2; i <= total + 1; i++) {
+      res.push(this.getValueInMemory((val.dir + i).toString()));
+    }
+    return res;
+  }
   sumArray(val: { varName: string; dir: number; dim?: number }) {
     const arr = this.exportArray(val);
     if (arr === undefined) {
@@ -539,6 +603,216 @@ class VirtualMachine {
     }
   }
 
+  rand(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      let result = quadruple.result;
+      const arr = this.getValueInMemory(arg1);
+      this.setValueInMemory(result, Math.floor(Math.random() * Number(arr)));
+
+    } else {
+      console.log("null");
+    }
+  }
+
+  min(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+
+        this.setValueInMemory(result, min(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  max(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+
+        this.setValueInMemory(result, max(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  prod(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+
+        this.setValueInMemory(result, product(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  mean(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+
+        this.setValueInMemory(result, mean(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+
+  mode(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+
+        this.setValueInMemory(result, mode(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+  median(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+
+        this.setValueInMemory(result, median(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+  sort(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+        this.importArray(
+          e,
+          arr.sort(function (a, b) {
+            return a - b;
+          })
+        );
+        this.setValueInMemory(result, median(arr));
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
+  find(quadruple: Quadruple) {
+    const arg1 = quadruple.arg1;
+    const arg2 = quadruple.arg2;
+    const e = this.varTable.find((v) => v.dir.toString() === arg1);
+    if (arg1 && arg2) {
+      if (e && e.dim !== undefined) {
+        let result = quadruple.result;
+        const arr = this.exportArray(e);
+        if (arr === undefined) {
+          throw new Error(
+            `sum() function can only be used with arrays, not with ${arg1}`
+          );
+        }
+        const val2 = this.getValueInMemory(arg2);
+        this.setValueInMemory(
+          result,
+          arr.findIndex((x: any) => x.toString() === val2)
+        );
+      } else if (arg1[0] === "*") {
+        throw new Error(
+          `sum() function can only be used with arrays, not with ${arg1}`
+        );
+      }
+    } else {
+      console.log("null");
+    }
+  }
   sin(quadruple: Quadruple) {
     const arg1 = quadruple.arg1;
     const e = this.varTable.find((v) => v.dir.toString() === arg1);
