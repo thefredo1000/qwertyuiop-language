@@ -1,0 +1,379 @@
+CTE_INT     ::= [+-]?([0-9])+
+CTE_FLOAT   ::= [+-]?([0-9])+[.]([0-9])+ 
+CTE_CHAR    ::= ['].[']
+CTE_STRING  ::= ["][^".]*["] 
+
+ID_NAME     ::= [a-zA-Z][a-zA-Z0-9]*
+
+GE_COMP     ::=     ">="           
+LE_COMP     ::=     "<="           
+LT_COMP     ::=     "<"            
+GT_COMP     ::=     ">"            
+NE_COMP     ::=     "!="           
+EQ_COMP     ::=     "=="           
+AND         ::=     "&&"           
+OR          ::=     "||"           
+TRUE        ::=     "true"         
+FALSE       ::=     "false"        
+PLUS        ::=     "+"             
+MINUS       ::=     "-"             
+ASTERISK    ::=     "*"             
+SLASH       ::=     "/"             
+EQUALS      ::=     "="             
+DOT         ::=     "."             
+COLON       ::=     ":"             
+COMMA       ::=     ","             
+SEMICOLON   ::=     ";"             
+L_PAREN     ::=     "("             
+R_PAREN     ::=     ")"             
+L_BRACES    ::=     "{"             
+R_BRACES    ::=     "}"             
+L_BRACKET   ::=     "["             
+R_BRACKET   ::=     "]"             
+MAIN        ::=     "main"          
+IF          ::=     "if"            
+ELSE        ::=     "else"          
+WHILE       ::=     "while"         
+DO          ::=     "do"            
+FOR         ::=     "for"           
+PRINT       ::=     "print"         
+VAR         ::=     "var"           
+FUNC        ::=     "func"          
+RETURN      ::=     "return"        
+PRINT       ::=     "print"         
+SUM         ::=     "sum"           
+SIN         ::=     "sin"           
+COS         ::=     "cos"           
+TAN         ::=     "tan"           
+MIN         ::=     "min"           
+MAX         ::=     "max"           
+PRODUCT     ::=     "product"       
+FIND        ::=     "find"          
+SORT        ::=     "sort"          
+MEAN        ::=     "mean"          
+MODE        ::=     "mode"          
+MEDIAN      ::=     "median"        
+CHART       ::=     "chart"         
+RAND        ::=     "rand"          
+CTE_PI      ::=     "PI"            
+INT         ::=     "int"           
+FLOAT       ::=     "float"         
+CHAR        ::=     "char"          
+STRING      ::=     "string"        
+BOOL        ::=     "bool"          
+VOID        ::=     "void"          
+
+program 
+    ::= global_def EOF
+    
+
+global_def
+    ::= global_variable_def global_functions_def
+     
+
+global_variable_def
+    ::=
+    | variable_def global_variable_def 
+    
+
+variable_def
+    ::= VAR var_def SEMICOLON 
+    | CONST VAR var_def SEMICOLON 
+    
+
+var_def
+    ::= ID_NAME COLON type array_size EQUALS expression_0 
+    | ID_NAME COLON type array_size 
+    
+
+type
+    ::= CHAR
+    | STRING
+    | INT
+    | FLOAT
+    | BOOL
+    
+
+array_size
+    ::=
+    | L_BRACKET CTE_INT R_BRACKET  array_size
+    
+
+global_functions_def
+    ::= main
+    | main multiple_functions_def
+    | multiple_functions_def main
+    
+
+multiple_functions_def
+    ::= function_def
+    | multiple_functions_def function_def
+    
+
+main
+    ::= FUNC MAIN L_PAREN params R_PAREN L_BRACES multiple_statutes function_return R_BRACES 
+    
+function_def
+    ::= FUNC ID_NAME L_PAREN params R_PAREN COLON function_type L_BRACES multiple_statutes R_BRACES
+    
+function_type
+    ::= type 
+    | VOID
+    
+
+params
+    ::= /* empty */
+    | param 
+    | param COMMA params
+    
+
+param 
+    ::= ID_NAME COLON type
+    
+
+multiple_statutes
+    ::= statute
+    | multiple_statutes statute
+    
+
+statute
+    ::= variable_def
+    | variable_assign
+    | array_assign
+    | decision_statute
+    | do_while_loop
+    | while_loop
+    | for_loop
+    | function_return
+    | function_call
+    | other_functions
+    
+
+other_functions
+    ::= print
+    | sum SEMICOLON
+    | min SEMICOLON
+    | max SEMICOLON
+    | product SEMICOLON
+    | mean SEMICOLON
+    | mode SEMICOLON
+    | median SEMICOLON
+    | sin SEMICOLON
+    | cos SEMICOLON
+    | tan SEMICOLON
+    | chart SEMICOLON
+    | sort SEMICOLON
+    | find SEMICOLON
+    
+
+sum 
+    ::= SUM L_PAREN expression_0 R_PAREN
+    
+
+rand 
+    ::= RAND L_PAREN expression_0 R_PAREN 
+    
+min 
+    ::= MIN L_PAREN expression_0 R_PAREN 
+    
+
+max 
+    ::= MAX L_PAREN expression_0 R_PAREN
+    
+
+product 
+    ::= PRODUCT L_PAREN expression_0 R_PAREN
+    
+
+find 
+    ::= FIND L_PAREN expression_0 COMMA expression_0 R_PAREN
+    
+sort 
+    ::= SORT L_PAREN expression_0 R_PAREN
+    
+mean 
+    ::= MEAN L_PAREN expression_0 R_PAREN 
+    
+
+mode 
+    ::= MODE L_PAREN expression_0 R_PAREN
+    
+
+median 
+    ::= MEDIAN L_PAREN expression_0 R_PAREN
+    
+
+sin 
+    ::= SIN L_PAREN expression_0 R_PAREN  
+    
+
+cos 
+    ::= COS L_PAREN expression_0 R_PAREN   
+    
+
+tan 
+    ::= TAN L_PAREN expression_0 R_PAREN 
+    
+
+chart
+    ::= CHART L_PAREN expression_0 R_PAREN
+    
+
+print
+    ::= PRINT L_PAREN expression_0 R_PAREN SEMICOLON 
+    
+
+
+function_call
+    ::= ID_NAME L_PAREN call_params R_PAREN SEMICOLON 
+    
+
+do_while_loop
+    ::= DO L_BRACES multiple_statutes R_BRACES WHILE L_PAREN expression_0 R_PAREN SEMICOLON
+    
+
+for_loop
+    ::= FOR L_PAREN variable_def expression_0 SEMICOLON ID_NAME EQUALS expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES
+    
+
+while_loop
+    ::= WHILE L_PAREN expression_0 R_PAREN  L_BRACES multiple_statutes R_BRACES 
+    
+
+decision_statute
+    ::= IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES
+    | IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES ELSE L_BRACES multiple_statutes R_BRACES
+    | IF L_PAREN expression_0 R_PAREN L_BRACES multiple_statutes R_BRACES ELSE decision_statute
+    
+
+
+variable_assign
+    ::= ID_NAME EQUALS expression_0 SEMICOLON 
+    
+
+array_assign
+    ::= array_call EQUALS expression_0 SEMICOLON 
+    
+
+function_return
+    ::= RETURN expression_0 SEMICOLON 
+    | RETURN SEMICOLON
+    
+
+expression_0
+    ::= expression_0_or expression_0_prime
+    
+
+expression_0_prime 
+    ::= 
+    | AND expression_0_or expression_0_prime
+    
+
+
+expression_0_or
+    ::= expression_1 expression_0_or_prime
+    
+
+expression_0_or_prime 
+    ::= 
+    | OR expression_1 expression_0_or_prime
+    
+
+expression_1_pre
+    ::= expression_1
+    
+
+expression_1
+    ::= expression_2 expression_1_prime  
+    
+
+expression_1_prime
+    ::= 
+    | comp_operators expression_2 expression_1_prime
+    
+
+comp_operators
+    ::= EQ_COMP
+    | GE_COMP
+    | GT_COMP
+    | LE_COMP
+    | LT_COMP
+    | NE_COMP
+    
+expression_2
+    ::= expression_3 expression_2_prime 
+    
+
+expression_2_prime
+    ::= /* empty */ 
+    | sub_add_operators expression_3 expression_2_prime 
+    
+
+sub_add_operators
+    ::= PLUS 
+    | MINUS 
+    
+
+expression_3
+    ::= expression_4 expression_3_prime
+    
+
+expression_3_prime
+    ::= /* empty */ 
+    | mult_div_operand expression_4 expression_3_prime 
+    
+
+mult_div_operand
+    ::= ASTERISK
+    | SLASH 
+    
+
+expression_4
+    ::= CTE_FLOAT 
+    | CTE_PI 
+    | L_PAREN expression_0 R_PAREN 
+    | CTE_INT
+    | CTE_STRING
+    | CTE_CHAR
+    | TRUE 
+    | FALSE 
+    | id_call
+    | object_attribute_call
+    | sum
+    | sin
+    | cos
+    | tan
+    | min
+    | max
+    | product
+    | sort
+    | find
+    | mean
+    | mode
+    | median
+    | rand
+    
+
+id_call
+    ::= ID_NAME L_PAREN call_params R_PAREN 
+    | ID_NAME 
+    | array_call 
+    
+
+call_params
+    ::=
+    | expression_0 call_params_prime
+    
+
+call_params_prime
+    ::=
+    | COMMA expression_0 call_params_prime
+    
+
+array_call
+    ::= ID_NAME L_BRACKET expression_0 R_BRACKET array_call_size 
+    
+array_call_size
+    ::= 
+    | L_BRACKET expression_0 R_BRACKET array_call_size
+    
