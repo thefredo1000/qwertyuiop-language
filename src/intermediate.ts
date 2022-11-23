@@ -4,10 +4,6 @@ const TYPE_MEM_SIZE = SCOPE_MEM_SIZE / 10;
 
 import { Stack } from "@datastructures-js/stack";
 
-interface MemoryBatch {
-  [key: string]: Array<any | undefined>;
-}
-
 interface Func {
   type: string;
   nLocalVar: number;
@@ -21,6 +17,18 @@ interface DirFunc {
   [key: string]: Func;
 }
 
+function newDirFunc(): DirFunc {
+  return {};
+}
+
+interface MemoryBatch {
+  [key: string]: Array<any | undefined>;
+}
+
+interface Mem {
+  [key: string]: MemoryBatch;
+}
+
 function newMemoryBatch(): MemoryBatch {
   return {
     int: [],
@@ -31,14 +39,12 @@ function newMemoryBatch(): MemoryBatch {
   };
 }
 
-function newDirFunc(): DirFunc {
-  return {};
-}
-
-interface Mem {
-  [key: string]: MemoryBatch;
-}
-
+/* 
+A quadruple is stored like this:
+┌──────────┬──────────┬──────────┬───────────┐
+│    op    │   arg1   │   arg2   │  result   │
+└──────────┴──────────┴──────────┴───────────┘
+*/
 interface Quadruple {
   op: string;
   arg1: string | undefined;
@@ -97,7 +103,6 @@ const semanticCube: SemanticCube = {
   },
 };
 
-// TODO: Change this into binary or hex or something
 function getTypeDir(type: string) {
   if (type === "int") {
     return 0;
@@ -113,7 +118,11 @@ function getTypeDir(type: string) {
   return 5 * TYPE_MEM_SIZE;
 }
 
-class Semantics {
+/* 
+The intermediate code is generated with this class.
+Here the quadruples are stored and the memory is managed.
+*/
+class Intermediate {
   memory: Mem;
   dirFunc: DirFunc;
   varTable: Array<{ varName: string; dir: number; dim?: number }>;
@@ -138,6 +147,9 @@ class Semantics {
   jumpsStack: Stack<number> = new Stack();
   initialGoto: number = 0;
 
+  /*
+  The constructor initializes the memory and the function directory.
+  */
   constructor() {
     this.scopeStack = new Stack();
     this.scopeStack.push("global");
@@ -178,6 +190,10 @@ class Semantics {
 
     this.varTable = Array<{ varName: string; dir: number }>();
   }
+
+  /*
+  This function is called the program starts.
+  */
   openProgram() {
     this.initialGoto = this.quadruples.length - 1;
     this.quadruples.push({
@@ -188,6 +204,9 @@ class Semantics {
     });
   }
 
+  /*
+  This function is called to define the initial GOTO.
+  */
   setInitialGoto() {
     this.quadruples[this.initialGoto + 1].result =
       this.quadruples.length.toString();
@@ -256,6 +275,9 @@ class Semantics {
     return false;
   }
 
+  /*
+  This function stores the parameters of a function in the function directory.
+  */
   saveParam(name: string, type: string) {
     this.dirFunc[this.scopeStack.peek()].nLocalVar--;
 
@@ -272,6 +294,9 @@ class Semantics {
     });
   }
 
+  /*
+  This function is called to save the size of an array.
+  */
   saveArraySize(s: number | string) {
     const size = typeof s === "string" ? parseInt(s.toString()) : s;
     this.r = size * (this.r || 1);
@@ -285,6 +310,9 @@ class Semantics {
     this.prevDim = this.dim.length - 1;
   }
 
+  /*
+  This function is called to save the array in the memory.
+  */
   saveArray(
     variable: any,
     type: string,
@@ -375,6 +403,9 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to save a variable in the memory.
+  */
   saveVariable(
     variable: any,
     type: string,
@@ -409,6 +440,9 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to save a function in the memory.
+  */
   saveFunction(funcName: any) {
     const func = this.dirFunc[funcName];
     if (func) {
@@ -427,10 +461,16 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to set the type of a function.
+  */
   setFunctionType(funcName: string, type: string) {
     this.dirFunc[funcName].type = type;
   }
 
+  /*
+  This function is called to generate the closing quadruple of a function.
+  */
   closeFunction() {
     if (
       this.scopeStack.peek() !== "global" &&
@@ -443,15 +483,11 @@ class Semantics {
         result: "",
       });
     }
-
-    // this.varTable = this.varTable.filter((x) => {
-    //   return (
-    //     Math.floor(x.dir / SCOPE_MEM_SIZE) !==
-    //     this.dirFunc[this.scopeStack.peek()].scope
-    //   );
-    // });
   }
 
+  /*
+  This function is called to generate the initial quadruple of a function.
+  */
   preCallFunction(funcName: string) {
     const func = this.dirFunc[funcName];
     if (!func) {
@@ -466,6 +502,10 @@ class Semantics {
     }
     this.operatorStack.push("(");
   }
+
+  /*
+  This function is called to generate the calling quadruple of a function.
+  */
   callFunction(funcName: string) {
     const func = this.dirFunc[funcName];
     if (!func) {
@@ -502,6 +542,9 @@ class Semantics {
     this.operatorStack.pop();
   }
 
+  /*
+  This function is called to store operands in the operand stack.
+  */
   storeOperand(operand: string, type: string) {
     if (type === "string" || type === "char") {
       operand = operand.replace(/['"]+/g, "");
@@ -509,6 +552,9 @@ class Semantics {
     this.operandStack.push({ val: operand, type });
   }
 
+  /*
+  This function is called to store constant operands in memory and in the operand stack.
+  */
   storeConstOperand(operand: any, type: string) {
     if (this.memory["const"][type].includes(operand)) {
       const dir = this.memory["const"][type].indexOf(operand);
@@ -532,12 +578,14 @@ class Semantics {
     return dir;
   }
 
+  /*
+  This function is called to store variable operands in the operand stack.
+  */
   storeVariableOperand(variable: string) {
     const varDir = this.varTable.find((x: any) => x.varName === variable);
     if (!varDir) {
       throw new Error(`${variable} does not exist.`);
     } else {
-      console.log(this.operatorStack, varDir, "help!");
       this.operandStack.push({
         val: varDir.dir.toString(),
         type: this.getVariableType(varDir.dir),
@@ -561,6 +609,9 @@ class Semantics {
     return "null";
   }
 
+  /*
+  This function is called to get the value of an address in memory.
+  */
   getValueInMemory(key: string): any {
     if (key[0] === "*") {
       key = key.replace("*", "");
@@ -581,6 +632,9 @@ class Semantics {
     return val;
   }
 
+  /*
+  This function is called to verify if a value is in the range of an array.
+  */
   verifyArray() {
     const operand = this.operandStack.peek();
     this.varTable.forEach((x: any) => {
@@ -594,6 +648,9 @@ class Semantics {
     });
   }
 
+  /*
+  This function is called to move to the next dimension of an array.
+  */
   nextDim() {
     const currDim = this.getDimAt(this.dimStack.peek());
     if (currDim.next !== undefined) {
@@ -601,6 +658,9 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to generate the quadruple of an array definition.
+  */
   createArrayQuad() {
     const operand = this.operandStack.peek();
     const dim = this.getDimAt(this.dimStack.peek());
@@ -614,7 +674,6 @@ class Semantics {
         this.tempStack.size() +
         getTypeDir("int") +
         this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
-      // console.table(dim);
 
       const mDir = this.storeConstOperand(dim.m, "int");
 
@@ -649,6 +708,9 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to generate the quadruple of an array call.
+  */
   processArrayCall() {
     const temp = this.operandStack.pop();
     const aux = this.operandStack.pop();
@@ -668,6 +730,9 @@ class Semantics {
     this.operandStack.push({ val: "*" + tempDir.toString(), type: "int" });
   }
 
+  /*
+  This function is called to generate the quadruple of the return of a function.
+  */
   returnFunction() {
     const func = this.dirFunc[this.scopeStack.peek()];
     if (
@@ -688,8 +753,6 @@ class Semantics {
           this.dirFunc["temp"].scope * SCOPE_MEM_SIZE;
 
         if (this.operandStack.peek().type !== func.type) {
-          console.log(this.operandStack.peek());
-          console.table(this.memory);
           throw new Error(
             `Return type (${
               this.operandStack.peek().type
@@ -707,44 +770,18 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to store an operator in the operator stack.
+  */
   storeOperator(operator: string) {
-    console.log("why???", operator);
     this.operatorStack.push(operator);
   }
 
+  /*
+  This function is called to remove an operator in the operator stack.
+  */
   removeOperator() {
     this.operatorStack.pop();
-  }
-
-  processIntMathematicalExpression(
-    operand1: any,
-    operand2: any,
-    operator: any
-  ) {
-    if (operator === "+") {
-      return parseInt(operand1) + parseInt(operand2);
-    } else if (operator === "-") {
-      return parseInt(operand1) - parseInt(operand2);
-    } else if (operator === "*") {
-      return parseInt(operand1) * parseInt(operand2);
-    } else if (operator === "/") {
-      return parseInt(operand1) / parseInt(operand2);
-    }
-  }
-  processFloatMathematicalExpression(
-    operand1: any,
-    operand2: any,
-    operator: any
-  ) {
-    if (operator === "+") {
-      return parseFloat(operand1) + parseFloat(operand2);
-    } else if (operator === "-") {
-      return parseFloat(operand1) - parseFloat(operand2);
-    } else if (operator === "*") {
-      return parseFloat(operand1) * parseFloat(operand2);
-    } else if (operator === "/") {
-      return parseFloat(operand1) / parseFloat(operand2);
-    }
   }
 
   isComparisonOperator(operator: string) {
@@ -775,8 +812,10 @@ class Semantics {
     return false;
   }
 
+  /*
+  This function is called return the type of the result of an operation.
+  */
   getOperatorType(operator: string, operand1: any, operand2: any) {
-    // todo: add more operators and their types
     const type1 = this.getAddressType(operand1);
     const type2 = this.getAddressType(operand2);
 
@@ -788,7 +827,6 @@ class Semantics {
     ) {
       return "string";
     }
-    console.log(this.isComparisonOperator(operator));
     if (this.isComparisonOperator(operator)) {
       return "bool";
     }
@@ -799,6 +837,9 @@ class Semantics {
     return semanticCube[operator][type1][type2];
   }
 
+  /*
+  This function is called to generate the quadruple of an operation.
+  */
   processExpression(operators: string[]) {
     if (!operators.includes(this.operatorStack.peek())) {
       return;
@@ -809,10 +850,7 @@ class Semantics {
     const { val: operand2, type: type2 } = this.operandStack.pop();
     const { val: operand1, type: type1 } = this.operandStack.pop();
 
-    // TODO: check types
-    console.log(operatorStr, operand1, operand2, "hijasklñd");
     const resultType = this.getOperatorType(operatorStr, operand1, operand2);
-    console.log(resultType, "result type");
     const tempDir =
       this.tempStack.size() +
       getTypeDir(resultType) +
@@ -825,7 +863,6 @@ class Semantics {
       result: tempDir.toString(),
     });
 
-    console.log(resultType);
     this.operandStack.push({
       val: tempDir.toString(),
       type: resultType,
@@ -834,6 +871,9 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
   }
 
+  /*
+  This function is called to generate the quadruple of the sum of an array.
+  */
   processSum() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -851,6 +891,9 @@ class Semantics {
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
+  /*
+  This function is called to generate the quadruple of the generation of a random number.
+  */
   processRand() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -867,6 +910,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the min of an array.
+  */
   processMin() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -883,6 +930,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the max of an array.
+  */
   processMax() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -899,6 +950,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the product of an array.
+  */
   processProd() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -915,6 +970,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the find of a value in an array.
+  */
   processFind() {
     const { val: operand1, type } = this.operandStack.pop();
     const { val: operand2 } = this.operandStack.pop();
@@ -932,6 +991,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the sort in an array.
+  */
   processSort() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -948,6 +1011,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the mean of an array.
+  */
   processMean() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -965,6 +1032,9 @@ class Semantics {
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
+  /*
+  This function is called to generate the quadruple of the mode of an array.
+  */
   processMode() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -981,6 +1051,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the median of an array.
+  */
   processMedian() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -997,6 +1071,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the sin of a value.
+  */
   processSin() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -1014,6 +1092,9 @@ class Semantics {
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
+  /*
+  This function is called to generate the quadruple of the cosine of a value.
+  */
   processCos() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -1030,6 +1111,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the tangent of a value.
+  */
   processTan() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -1046,6 +1131,10 @@ class Semantics {
     this.tempStack.push(tempDir.toString());
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
+
+  /*
+  This function is called to generate the quadruple of the chart of an array.
+  */
   processChart() {
     const { val: operand, type } = this.operandStack.pop();
     const tempDir =
@@ -1063,6 +1152,9 @@ class Semantics {
     this.operandStack.push({ val: tempDir.toString(), type: "int" });
   }
 
+  /*
+  This function is called to generate the quadruple of the print of a value or an array.
+  */
   processPrint() {
     const { val: operand, type } = this.operandStack.pop();
     this.quadruples.push({
@@ -1072,9 +1164,12 @@ class Semantics {
       result: "",
     });
   }
+
+  /*
+  This function is called to generate the quadruple of the parameter of a function.
+  */
   processCallParams() {
     const { val: operand, type } = this.operandStack.pop();
-    console.log("CAMINO POR LA CIUDAD", operand);
     this.quadruples.push({
       op: "PARAM",
       arg1: operand,
@@ -1083,6 +1178,9 @@ class Semantics {
     });
   }
 
+  /*
+  This function is called to generate the quadruple of a GOTOF in an if statement.
+  */
   processDecisionStatExpression() {
     if (this.operandStack.peek().type !== "bool") {
       throw new Error(
@@ -1102,6 +1200,9 @@ class Semantics {
     }
   }
 
+  /*
+  This function is called to generate the quadruple of an if statement.
+  */
   processDecisionStatElse() {
     this.quadruples.push({
       op: "GOTO",
@@ -1113,14 +1214,25 @@ class Semantics {
     this.jumpsStack.push(this.quadruples.length - 1);
     this.quadruples[jumpIndex].result = this.quadruples.length.toString();
   }
+
+  /*
+  This function is called to modify the quadruple of an if statement to set the jump.
+  */
   endDecisionStat() {
     const jumpIndex = this.jumpsStack.pop();
     this.quadruples[jumpIndex].result = this.quadruples.length.toString();
   }
 
+  /*
+  This function is used to save where a for loop starts.
+  */
   saveForLoop() {
     this.jumpsStack.push(this.quadruples.length);
   }
+
+  /*
+  This function is used to generate the starting quadruple of a for loop.
+  */
   processForLoop() {
     if (this.operandStack.peek().type !== "bool") {
       throw new Error(`Type mismatch with ${this.operandStack.peek().val}`);
@@ -1135,6 +1247,10 @@ class Semantics {
       this.jumpsStack.push(this.quadruples.length - 1);
     }
   }
+
+  /*
+  This function is used to generate the final quadruple of a for loop.
+  */
   closeForLoop() {
     const jumpIndex = this.jumpsStack.pop();
     this.quadruples.push({
@@ -1146,9 +1262,16 @@ class Semantics {
     this.quadruples[jumpIndex].result = this.quadruples.length.toString();
   }
 
+  /*
+  This function is used to save where a for loop starts.
+  */
   saveWhileLoop() {
     this.jumpsStack.push(this.quadruples.length);
   }
+
+  /*
+  This function is used to generate the starting quadruple of a for loop.
+  */
   processWhileLoopExpression() {
     if (this.operandStack.peek().type !== "bool") {
       throw new Error(`Type mismatch with ${this.operandStack.peek().val}`);
@@ -1163,6 +1286,10 @@ class Semantics {
       this.jumpsStack.push(this.quadruples.length - 1);
     }
   }
+
+  /*
+  This function is used to generate the final quadruple of a for loop.
+  */
   closeWhileLoop() {
     const jumpIndex = this.jumpsStack.pop();
     this.quadruples.push({
@@ -1174,11 +1301,13 @@ class Semantics {
     this.quadruples[jumpIndex].result = this.quadruples.length.toString();
   }
 
+  /*
+  This function is used to generate the quadruple of storing a value in a variable.
+  */
   storeData(varName: string, data: any) {
     const variable = this.varTable.find((x) => x.varName === varName);
     const val = this.operandStack.pop();
     if (variable && val) {
-      console.log(variable, val);
       const type = this.getVariableType(variable.dir);
 
       if (!this.matchingType(type, val.type)) {
@@ -1195,12 +1324,15 @@ class Semantics {
     }
     this.tempStack.clear();
   }
+
+  /*
+  This function is used to generate the quadruple of storing a value in an array position.
+  */
   storeArrayInStack() {
     const val = this.operandStack.pop();
     const arrayDir = this.operandStack.pop();
 
     if (val) {
-      console.log(val, arrayDir);
       const dir = this.getValueInMemory(arrayDir.val);
       this.quadruples.push({
         op: "=",
@@ -1212,6 +1344,9 @@ class Semantics {
     this.tempStack.clear();
   }
 
+  /*
+  This function is used to close the program.
+  */
   closeProgram() {
     this.quadruples.push({
       op: "END",
@@ -1220,16 +1355,6 @@ class Semantics {
       result: "",
     });
   }
-
-  // processArraySize() {
-  //   const { val: operand, type } = this.operandStack.pop();
-  //   this.quadruples.push({
-  //     op: "ARRAYSIZE",
-  //     arg1: operand,
-  //     arg2: "",
-  //     result: "",
-  //   });
-  // }
 }
 
-export = Semantics;
+export = Intermediate;
