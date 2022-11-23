@@ -2,7 +2,7 @@ func main () {
     var array0 : float [100];
     var counter : int = 0;
     for (var i : int = 0; i < 100; i = i + 1;) {
-        array0[i] = sin(counter * (PI * 4) / 120) * 15.0;
+        array0[i] = cos(counter * (PI * 4) / 120) * 15.0;
         counter = counter + 1;
     }
     print(array0);

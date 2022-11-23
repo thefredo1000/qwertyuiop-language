@@ -1,0 +1,20 @@
+var s1 : int = 3;
+var array : int [3] [4];
+
+func main () {
+
+    var counter : int = 0;
+    var i : int = 0;
+    while ( i < s1) {
+        var j : int = 0;
+        while ( j < 4) {
+            array[i][j] = counter;
+            counter = counter + 1;
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    print(array);
+
+    return 3;
+}

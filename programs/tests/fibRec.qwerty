@@ -9,9 +9,8 @@ func fib(num: int) : int {
 }
 
 func main () {
-    var x : int = 3;
+    var x : int = 4;
     print(x);
     print(fib(x));
-    
     return 3;
 }

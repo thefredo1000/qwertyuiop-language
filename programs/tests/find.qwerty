@@ -6,7 +6,6 @@ func main () {
         array[j] = rand(20);
     }
     print(array);
-    sort(array);
-    print(array);
+    print(find(array, 3));
     return 3;
 }
