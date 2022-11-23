@@ -1,0 +1,34 @@
+"use strict";
++-
+    *
+        /;
+f
+    >
+;
+    <=
+    ==
+    !=
+    &&
+    ||
+        GOTO;
+GOTOF;
+ERA;
+PARAM;
+GOSUB;
+ENDFUNC;
+RETURN;
+PRINT;
+SUM;
+RAND;
+MIN;
+MAX;
+PROD;
+MEAN;
+MODE;
+MEDIAN;
+FIND;
+SORT;
+CHART;
+SIN;
+COS;
+TAN;
