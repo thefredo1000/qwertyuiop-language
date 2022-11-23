@@ -1,0 +1,16 @@
+var array : int [20];
+
+func fillArray(num : int) : void {
+    for (var i : int = 0; i < 20; i = i + 1;) {
+        array[i] = rand(num);
+    }
+}
+
+func main() {
+    fillArray(20);
+    sort(array);
+    print(array);
+    chart(array);
+
+    return 0;
+}
