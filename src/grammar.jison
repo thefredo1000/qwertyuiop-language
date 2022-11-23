@@ -101,14 +101,8 @@
 %start program
 %%
 program 
-    : program_name global_def EOF {
-        yy.data.semantics.closeFunction();
+    : global_def EOF {
         yy.data.semantics.closeProgram();
-    }
-    ;
-
-program_name
-    : {
     }
     ;
 
@@ -610,18 +604,16 @@ expression_3
 expression_4_pre
     : expression_4 {
         yy.data.semantics.processExpression(["*", "/"]); 
-        console.log($1, "jimob")
     }
     ;
 
 expression_3_prime
     : /* empty */ 
-    | mult_div_operand expression_4_pre expression_3_prime 
+    | mult_div_operators expression_4_pre expression_3_prime 
     ;
 
-mult_div_operand
+mult_div_operators
     : ASTERISK {
-        console.log("repit")
         yy.data.semantics.storeOperator($1)
     }
     | SLASH {
@@ -673,9 +665,7 @@ id_call
     : pre_call_function call_params R_PAREN  {
         yy.data.semantics.callFunction($1);
     }
-    | id_name {
-        console.log("first")
-    }
+    | id_name 
     | array_call {
 
     }
