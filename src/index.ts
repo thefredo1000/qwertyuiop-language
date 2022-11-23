@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import Semantics from "./intermediate";
+import Intermediate from "./intermediate";
 import VirtualMachine from "./virtualmachine";
 
 const program = require("commander");
@@ -25,7 +25,7 @@ var bnf = fs.readFileSync("src/grammar.jison", "utf8");
 var parser = new jison.Parser(bnf);
 var source = fs.readFileSync(process.argv.slice(2)[0], "utf8");
 
-const semantics: Semantics = new Semantics();
+const semantics: Intermediate = new Intermediate();
 parser.yy.data = {
   semantics,
 };
