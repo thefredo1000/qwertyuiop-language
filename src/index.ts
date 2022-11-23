@@ -16,7 +16,6 @@ const showQuadruples: boolean =
   program.rawArgs.includes("-q") ||
   program.rawArgs.includes("--showquadruples");
 
-// myparser.js
 var fs = require("fs");
 var jison = require("jison");
 
@@ -34,7 +33,7 @@ parser.generate();
 
 parser.parse(source);
 
-if (!debugMode) {
+if (debugMode) {
   console.log("\x1b[33m%s\x1b[0m", "Memory:");
   console.table(parser.yy.data.semantics.getMemory());
 
